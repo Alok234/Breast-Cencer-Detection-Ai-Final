@@ -4,15 +4,30 @@ import numpy as np
 import tensorflow as tf
 from flask import Flask, request, jsonify
 from flask_cors import CORS
+from huggingface_hub import hf_hub_download
 
 app = Flask(__name__)
-CORS(app)  # GitHub Pages থেকে রিকোয়েস্ট আসার অনুমতি দেওয়ার জন্য
+CORS(app)
 
-MODEL_PATH = "BreastCancer_HighAccuracy_HybridModel.keras"
+MODEL_FILENAME = "BreastCancer_HighAccuracy_HybridModel.keras"
 
-# মডেল লোড করা
+
+HF_REPO_ID = "alo234/Breast_Cancer_MOdel"
+
+
+if not os.path.exists(MODEL_FILENAME):
+    print("⏳ Downloading model from Hugging Face Hub...")
+    model_path = hf_hub_download(
+        repo_id=HF_REPO_ID,
+        filename=MODEL_FILENAME,
+        local_dir="."
+    )
+    print("✅ Model Downloaded Successfully!")
+else:
+    model_path = MODEL_FILENAME
+
 try:
-    model = tf.keras.models.load_model(MODEL_PATH)
+    model = tf.keras.models.load_model(model_path)
     print("✅ Model Loaded Successfully!")
 except Exception as e:
     print(f"⚠️ Model Loading Failed: {e}")
