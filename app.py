@@ -31,7 +31,7 @@ def load_tflite_model():
         print("✅ TFLite Interpreter Loaded Successfully!")
         return interpreter
     except Exception as e:
-        print(f"⚠️ Model Loading Error: {e}")
+        print(f"❌ Model Load Error: {e}")
         return None
 
 # Load model interpreter on startup
@@ -54,13 +54,14 @@ def preprocess_image(image_bytes):
         
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
-    img = img.astype(np.float32) / 255.0  # Normalize pixel values [0, 1]
+    img = img.astype(np.float32) / 255.0  # Normalize pixel values
     img = np.expand_dims(img, axis=0)
     return img
 
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({"status": "Breast Cancer Detection API (TFLite) is Live!"})
+    status_msg = "Model Active" if interpreter else "Model Failed to Load"
+    return jsonify({"status": "Breast Cancer Detection API is Live!", "model_status": status_msg})
 
 @app.route("/predict", methods=["POST", "OPTIONS"])
 def predict():
@@ -68,24 +69,24 @@ def predict():
         return "", 200
 
     if interpreter is None:
-        return jsonify({"error": "Model failed to load on server launch."}), 500
+        return jsonify({"error": "Model failed to initialize on server launch."}), 500
 
     if "file" not in request.files:
-        return jsonify({"error": "No file uploaded"}), 400
+        return jsonify({"error": "No file uploaded in request."}), 400
     
     file = request.files["file"]
     if file.filename == "":
-        return jsonify({"error": "No file selected"}), 400
+        return jsonify({"error": "No file selected."}), 400
 
     try:
         img = preprocess_image(file.read())
         
-        # Perform TFLite inference
+        # Execute TFLite model inference
         interpreter.set_tensor(input_details[0]['index'], img)
         interpreter.invoke()
         output_data = interpreter.get_tensor(output_details[0]['index'])
         
-        pred = float(output_data[0][0])
+        pred = float(output_data.flatten()[0])
 
         result = CLASS_NAMES[1] if pred > 0.5 else CLASS_NAMES[0]
         confidence = float(pred if pred > 0.5 else 1.0 - pred) * 100.0
@@ -97,7 +98,7 @@ def predict():
         }), 200
 
     except Exception as e:
-        print(f"❌ Prediction Error: {str(e)}")
+        print(f"❌ Prediction Runtime Error: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
