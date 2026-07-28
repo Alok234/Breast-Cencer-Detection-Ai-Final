@@ -4,7 +4,7 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Breast Cancer Detection AI</title>
-    <!-- Tailwind CSS CDN for modern UI styling -->
+    <!-- Tailwind CSS CDN -->
     <script src="https://cdn.tailwindcss.com"></script>
     <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
@@ -33,11 +33,12 @@
             </div>
 
             <!-- Upload Area -->
-            <div class="relative border-2 border-dashed border-slate-600 hover:border-indigo-500 rounded-xl p-6 transition-all duration-200 text-center cursor-pointer bg-slate-900/40 group mb-6" id="drop-zone">
-                <input type="file" id="fileInput" accept="image/*" onchange="previewFile()" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+            <div class="relative border-2 border-dashed border-slate-600 hover:border-indigo-500 rounded-xl p-6 transition-all duration-200 text-center cursor-pointer bg-slate-900/40 group mb-6">
+                <!-- Direct Event Listener -->
+                <input type="file" id="fileInput" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                 
                 <!-- Default Placeholder -->
-                <div id="upload-placeholder" class="flex flex-col items-center justify-center space-y-3">
+                <div id="uploadPlaceholder" class="flex flex-col items-center justify-center space-y-3">
                     <div class="p-4 bg-slate-800 rounded-full text-indigo-400 group-hover:scale-110 transition-transform duration-200">
                         <i class="fa-solid fa-cloud-arrow-up text-3xl"></i>
                     </div>
@@ -48,9 +49,9 @@
                 </div>
 
                 <!-- Preview Container -->
-                <div id="previewContainer" class="hidden flex flex-col items-center justify-center space-y-3">
+                <div id="previewContainer" class="hidden flex flex-col items-center justify-center space-y-3 z-20">
                     <img id="imagePreview" src="" alt="Selected Preview" class="max-h-56 rounded-lg object-contain shadow-lg border border-slate-700" />
-                    <span class="text-xs text-indigo-400 hover:underline">Click to change image</span>
+                    <span class="text-xs text-indigo-400 hover:underline pointer-events-none">Click to change image</span>
                 </div>
             </div>
 
@@ -76,38 +77,35 @@
 
     <!-- JavaScript Handling -->
     <script>
-        // Update this to match your actual Render deployment backend URL
         const API_URL = "https://breast-cencer-detection-ai-final.onrender.com/predict";
 
-        // Function 1: Handles previewing image when file is selected
-        function previewFile() {
-            const fileInput = document.getElementById('fileInput');
-            const previewContainer = document.getElementById('previewContainer');
-            const uploadPlaceholder = document.getElementById('upload-placeholder');
-            const imagePreview = document.getElementById('imagePreview');
-            const resultBox = document.getElementById('resultBox');
+        // DOM Elements
+        const fileInput = document.getElementById('fileInput');
+        const uploadPlaceholder = document.getElementById('uploadPlaceholder');
+        const previewContainer = document.getElementById('previewContainer');
+        const imagePreview = document.getElementById('imagePreview');
+        const resultBox = document.getElementById('resultBox');
 
-            const file = fileInput.files[0];
+        // File Select Event
+        fileInput.addEventListener('change', function () {
+            const file = this.files[0];
 
             if (file) {
                 const reader = new FileReader();
+
                 reader.onload = function (e) {
                     imagePreview.src = e.target.result;
                     uploadPlaceholder.classList.add('hidden');
                     previewContainer.classList.remove('hidden');
-                    resultBox.classList.add('hidden'); // Reset output on new upload
+                    resultBox.classList.add('hidden'); // Clear output box on new selection
                 };
+
                 reader.readAsDataURL(file);
             }
-        }
+        });
 
-        // Attach function directly to window object to prevent any ReferenceError scope issues
-        window.previewFile = previewFile;
-
-        // Function 2: Sends image file to backend Flask API
+        // API Upload Function
         async function uploadImage() {
-            const fileInput = document.getElementById("fileInput");
-            const resultBox = document.getElementById("resultBox");
             const resultStatus = document.getElementById("resultStatus");
             const resultDetails = document.getElementById("resultDetails");
             const analyzeBtn = document.getElementById("analyzeBtn");
@@ -135,16 +133,12 @@
                 });
 
                 if (!response.ok) {
-                    if (response.status === 500) {
-                        showError("❌ Connection Error!\nServer status: 500");
-                        return;
-                    }
-                    throw new Error(`Server status: ${response.status}`);
+                    showError("❌ Connection Error!\nServer status: " + response.status);
+                    return;
                 }
 
                 const data = await response.json();
 
-                // Display success output based on model response
                 if (data.result === "Malignant") {
                     resultBox.className = "mt-6 p-4 rounded-xl border text-center border-red-500/30 bg-red-500/10 text-red-400 block";
                 } else {
@@ -158,20 +152,15 @@
                 console.error("Upload error details:", error);
                 showError("❌ Connection Error!\nServer status: 500");
             } finally {
-                // Reset Button UI
                 analyzeBtn.disabled = false;
                 analyzeBtn.innerHTML = `<i class="fa-solid fa-microscope"></i> <span>Analyze Image</span>`;
             }
         }
 
         function showError(message) {
-            const resultBox = document.getElementById("resultBox");
-            const resultStatus = document.getElementById("resultStatus");
-            const resultDetails = document.getElementById("resultDetails");
-
             resultBox.className = "mt-6 p-4 rounded-xl border text-center border-rose-500/40 bg-rose-500/10 text-rose-400 block";
             resultStatus.innerText = message;
-            resultDetails.innerText = "Please check server logs or redeploy using TFLite.";
+            resultDetails.innerText = "Please check server logs or redeploy backend using TFLite.";
         }
     </script>
 </body>
