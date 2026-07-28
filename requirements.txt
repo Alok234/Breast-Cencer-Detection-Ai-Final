@@ -1,7 +1,7 @@
 flask
 flask-cors
 gunicorn
-tflite-runtime
+onnxruntime
 opencv-python-headless
 huggingface_hub
 numpy
