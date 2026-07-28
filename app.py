@@ -6,8 +6,12 @@ from flask import Flask, request, jsonify
 from flask_cors import CORS
 from huggingface_hub import hf_hub_download
 
+
+
+
+
 app = Flask(__name__)
-CORS(app)
+CORS(app, resources={r"/*": {"origins": "*"}})
 
 MODEL_FILENAME = "BreastCancer_HighAccuracy_HybridModel.keras"
 
