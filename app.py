@@ -4,8 +4,9 @@ import numpy as np
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from huggingface_hub import hf_hub_download
-import tensorflow.lite as tflite
 
+# Use tflite_runtime to save memory on Render
+import tflite_runtime.interpreter as tflite
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
@@ -14,7 +15,6 @@ MODEL_FILENAME = "model.tflite"
 HF_REPO_ID = "alo234/Breast_Cancer_MOdel"
 
 def load_tflite_model():
-    """Download and initialize lightweight TFLite model from Hugging Face."""
     try:
         if not os.path.exists(MODEL_FILENAME):
             print("⏳ Downloading model.tflite from Hugging Face...")
@@ -34,14 +34,13 @@ def load_tflite_model():
         print(f"❌ Model Load Error: {e}")
         return None, str(e)
 
-# Load interpreter on startup
+# Startup Model Load
 interpreter, load_error = load_tflite_model()
 
 IMG_SIZE = 224
 CLASS_NAMES = ["Benign", "Malignant"]
 
 def preprocess_image(image_bytes):
-    """Decode byte array and preprocess image for model inference."""
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     
