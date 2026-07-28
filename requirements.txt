@@ -1,11 +1,7 @@
-# REMOVE this if present:
-# opencv-python
-
-# ADD this instead:
-opencv-python-headless
-tensorflow
 flask
 flask-cors
+gunicorn
+tflite-runtime
+opencv-python-headless
 huggingface_hub
 numpy
-tflite-runtime
