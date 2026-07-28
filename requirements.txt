@@ -1,7 +1,10 @@
+# REMOVE this if present:
+# opencv-python
+
+# ADD this instead:
+opencv-python-headless
+tensorflow
 flask
 flask-cors
-tensorflow
-opencv-python-headless
+huggingface_hub
 numpy
-gunicorn
-huggingface-hub
