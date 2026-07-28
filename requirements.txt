@@ -4,3 +4,4 @@ tensorflow
 opencv-python-headless
 numpy
 gunicorn
+huggingface-hub
