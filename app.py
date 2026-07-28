@@ -7,16 +7,17 @@ from huggingface_hub import hf_hub_download
 import tflite_runtime.interpreter as tflite
 
 app = Flask(__name__)
+# Enable CORS for all incoming origins and routes
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 MODEL_FILENAME = "model.tflite"
 HF_REPO_ID = "alo234/Breast_Cancer_MOdel"
 
 def load_tflite_model():
-    """Download and initialize lightweight TFLite model."""
+    """Download and initialize lightweight TFLite model from Hugging Face."""
     try:
         if not os.path.exists(MODEL_FILENAME):
-            print("⏳ Downloading TFLite model from Hugging Face...")
+            print("⏳ Downloading model.tflite from Hugging Face...")
             model_path = hf_hub_download(
                 repo_id=HF_REPO_ID,
                 filename=MODEL_FILENAME,
@@ -30,10 +31,10 @@ def load_tflite_model():
         print("✅ TFLite Interpreter Loaded Successfully!")
         return interpreter
     except Exception as e:
-        print(f"⚠️ Model Load Error: {e}")
+        print(f"⚠️ Model Loading Error: {e}")
         return None
 
-# Load model globally on startup
+# Load model interpreter on startup
 interpreter = load_tflite_model()
 
 if interpreter:
@@ -44,6 +45,7 @@ IMG_SIZE = 224
 CLASS_NAMES = ["Benign", "Malignant"]
 
 def preprocess_image(image_bytes):
+    """Decode byte array and preprocess image for model inference."""
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     
@@ -52,13 +54,13 @@ def preprocess_image(image_bytes):
         
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
-    img = img.astype(np.float32) / 255.0  
+    img = img.astype(np.float32) / 255.0  # Normalize pixel values [0, 1]
     img = np.expand_dims(img, axis=0)
     return img
 
 @app.route("/", methods=["GET"])
 def home():
-    return jsonify({"status": "Breast Cancer Detection API is Live!"})
+    return jsonify({"status": "Breast Cancer Detection API (TFLite) is Live!"})
 
 @app.route("/predict", methods=["POST", "OPTIONS"])
 def predict():
@@ -78,7 +80,7 @@ def predict():
     try:
         img = preprocess_image(file.read())
         
-        # TFLite inference
+        # Perform TFLite inference
         interpreter.set_tensor(input_details[0]['index'], img)
         interpreter.invoke()
         output_data = interpreter.get_tensor(output_details[0]['index'])
