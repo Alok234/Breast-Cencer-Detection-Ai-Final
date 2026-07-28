@@ -7,7 +7,6 @@ from huggingface_hub import hf_hub_download
 import tflite_runtime.interpreter as tflite
 
 app = Flask(__name__)
-# Enable CORS for all incoming origins and routes
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 MODEL_FILENAME = "model.tflite"
@@ -29,17 +28,13 @@ def load_tflite_model():
         interpreter = tflite.Interpreter(model_path=model_path)
         interpreter.allocate_tensors()
         print("✅ TFLite Interpreter Loaded Successfully!")
-        return interpreter
+        return interpreter, None
     except Exception as e:
         print(f"❌ Model Load Error: {e}")
-        return None
+        return None, str(e)
 
-# Load model interpreter on startup
-interpreter = load_tflite_model()
-
-if interpreter:
-    input_details = interpreter.get_input_details()
-    output_details = interpreter.get_output_details()
+# Load interpreter on startup
+interpreter, load_error = load_tflite_model()
 
 IMG_SIZE = 224
 CLASS_NAMES = ["Benign", "Malignant"]
@@ -54,14 +49,16 @@ def preprocess_image(image_bytes):
         
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
-    img = img.astype(np.float32) / 255.0  # Normalize pixel values
+    img = img.astype(np.float32) / 255.0
     img = np.expand_dims(img, axis=0)
     return img
 
 @app.route("/", methods=["GET"])
 def home():
-    status_msg = "Model Active" if interpreter else "Model Failed to Load"
-    return jsonify({"status": "Breast Cancer Detection API is Live!", "model_status": status_msg})
+    if interpreter:
+        return jsonify({"status": "Breast Cancer Detection API is Live!", "model_status": "Model Active"})
+    else:
+        return jsonify({"status": "Breast Cancer Detection API is Live!", "model_status": f"Model Failed: {load_error}"})
 
 @app.route("/predict", methods=["POST", "OPTIONS"])
 def predict():
@@ -69,19 +66,21 @@ def predict():
         return "", 200
 
     if interpreter is None:
-        return jsonify({"error": "Model failed to initialize on server launch."}), 500
+        return jsonify({"error": f"Model failed to load: {load_error}"}), 500
 
     if "file" not in request.files:
-        return jsonify({"error": "No file uploaded in request."}), 400
+        return jsonify({"error": "No file uploaded"}), 400
     
     file = request.files["file"]
     if file.filename == "":
-        return jsonify({"error": "No file selected."}), 400
+        return jsonify({"error": "No file selected"}), 400
 
     try:
         img = preprocess_image(file.read())
         
-        # Execute TFLite model inference
+        input_details = interpreter.get_input_details()
+        output_details = interpreter.get_output_details()
+
         interpreter.set_tensor(input_details[0]['index'], img)
         interpreter.invoke()
         output_data = interpreter.get_tensor(output_details[0]['index'])
