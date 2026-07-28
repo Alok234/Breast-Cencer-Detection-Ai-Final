@@ -1,1 +1,87 @@
 
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Breast Cancer AI Detection</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: #f0f4f8; display: flex; justify-content: center; align-items: center; min-height: 100vh; margin: 0; }
+        .card { background: white; padding: 30px; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); width: 100%; max-width: 450px; text-align: center; }
+        h2 { color: #1e3a8a; margin-bottom: 20px; }
+        .upload-btn { border: 2px dashed #3b82f6; padding: 25px; border-radius: 8px; cursor: pointer; background: #eff6ff; color: #1d4ed8; margin-bottom: 20px; font-weight: 600; }
+        input[type="file"] { display: none; }
+        button { background: #2563eb; color: white; border: none; padding: 12px 24px; font-size: 16px; border-radius: 6px; cursor: pointer; width: 100%; font-weight: bold; }
+        button:hover { background: #1d4ed8; }
+        #result-box { margin-top: 20px; font-size: 18px; font-weight: bold; display: none; padding: 15px; border-radius: 6px; }
+        .benign { background: #dcfce7; color: #15803d; }
+        .malignant { background: #fee2e2; color: #b91c1c; }
+    </style>
+</head>
+<body>
+
+<div class="card">
+    <h2>🔬 AI Breast Cancer Detection</h2>
+    
+    <label class="upload-btn" for="fileInput" id="uploadLabel">
+        📸 Click to Upload Image
+    </label>
+    <input type="file" id="fileInput" accept="image/*" onchange="previewFile()">
+
+    <button onclick="uploadImage()">Analyze Image</button>
+
+    <div id="result-box"></div>
+</div>
+
+<script>
+    // ⚠️ আপনার Render App Deploy করার পর প্রাপ্ত API URL নিচে বসাবেন
+    const RENDER_API_URL = "https://YOUR-RENDER-APP-NAME.onrender.com/predict";
+
+    function previewFile() {
+        const file = document.getElementById('fileInput').files[0];
+        if (file) {
+            document.getElementById('uploadLabel').innerText = "📄 Selected: " + file.name;
+        }
+    }
+
+    async function uploadImage() {
+        const fileInput = document.getElementById('fileInput');
+        const resultBox = document.getElementById('result-box');
+
+        if (!fileInput.files[0]) {
+            alert("Please select an image first!");
+            return;
+        }
+
+        resultBox.style.display = "block";
+        resultBox.className = "";
+        resultBox.style.background = "#e2e8f0";
+        resultBox.style.color = "#334155";
+        resultBox.innerText = "⏳ Analyzing Image...";
+
+        const formData = new FormData();
+        formData.append("file", fileInput.files[0]);
+
+        try {
+            const response = await fetch(RENDER_API_URL, {
+                method: "POST",
+                body: formData
+            });
+
+            const data = await response.json();
+
+            if (data.result) {
+                resultBox.className = data.result.toLowerCase();
+                resultBox.innerHTML = `Result: ${data.result}<br><small>Confidence: ${data.confidence}</small>`;
+            } else {
+                resultBox.innerText = "Error: " + (data.error || "Failed to process");
+            }
+        } catch (err) {
+            resultBox.innerText = "API Connection Failed!";
+            console.error(err);
+        }
+    }
+</script>
+
+</body>
+</html>
