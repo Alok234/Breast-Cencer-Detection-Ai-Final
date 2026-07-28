@@ -1,26 +1,22 @@
 import os
-import gc
 import cv2
 import numpy as np
-import tensorflow as tf
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from huggingface_hub import hf_hub_download
+import tflite_runtime.interpreter as tflite
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
 
-MODEL_FILENAME = "BreastCancer_HighAccuracy_HybridModel.keras"
+MODEL_FILENAME = "model.tflite"
 HF_REPO_ID = "alo234/Breast_Cancer_MOdel"
 
-# Global model variable initialized to None
-model = None
-
-def get_model():
-    global model
-    if model is None:
-        print("⏳ Downloading/Loading model on demand...")
+def load_tflite_model():
+    """Download and initialize lightweight TFLite model."""
+    try:
         if not os.path.exists(MODEL_FILENAME):
+            print("⏳ Downloading TFLite model from Hugging Face...")
             model_path = hf_hub_download(
                 repo_id=HF_REPO_ID,
                 filename=MODEL_FILENAME,
@@ -28,11 +24,21 @@ def get_model():
             )
         else:
             model_path = MODEL_FILENAME
-        
-        # Load model with lightweight configuration
-        model = tf.keras.models.load_model(model_path, compile=False)
-        print("✅ Model loaded successfully into memory!")
-    return model
+
+        interpreter = tflite.Interpreter(model_path=model_path)
+        interpreter.allocate_tensors()
+        print("✅ TFLite Interpreter Loaded Successfully!")
+        return interpreter
+    except Exception as e:
+        print(f"⚠️ Model Load Error: {e}")
+        return None
+
+# Load model globally on startup
+interpreter = load_tflite_model()
+
+if interpreter:
+    input_details = interpreter.get_input_details()
+    output_details = interpreter.get_output_details()
 
 IMG_SIZE = 224
 CLASS_NAMES = ["Benign", "Malignant"]
@@ -59,6 +65,9 @@ def predict():
     if request.method == "OPTIONS":
         return "", 200
 
+    if interpreter is None:
+        return jsonify({"error": "Model failed to load on server launch."}), 500
+
     if "file" not in request.files:
         return jsonify({"error": "No file uploaded"}), 400
     
@@ -67,17 +76,14 @@ def predict():
         return jsonify({"error": "No file selected"}), 400
 
     try:
-        # Load model only when endpoint is triggered
-        loaded_model = get_model()
-        
         img = preprocess_image(file.read())
         
-        # Inference using model call instead of predict to save RAM
-        raw_pred = loaded_model(img, training=False)
-        pred = float(raw_pred.numpy()[0][0])
+        # TFLite inference
+        interpreter.set_tensor(input_details[0]['index'], img)
+        interpreter.invoke()
+        output_data = interpreter.get_tensor(output_details[0]['index'])
         
-        # Cleanup
-        gc.collect()
+        pred = float(output_data[0][0])
 
         result = CLASS_NAMES[1] if pred > 0.5 else CLASS_NAMES[0]
         confidence = float(pred if pred > 0.5 else 1.0 - pred) * 100.0
@@ -89,7 +95,7 @@ def predict():
         }), 200
 
     except Exception as e:
-        print(f"❌ Server Error: {str(e)}")
+        print(f"❌ Prediction Error: {str(e)}")
         return jsonify({"error": str(e)}), 500
 
 if __name__ == "__main__":
