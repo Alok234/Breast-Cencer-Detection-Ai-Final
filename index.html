@@ -85,7 +85,7 @@
         const imagePreview = document.getElementById('imagePreview');
         const resultBox = document.getElementById('resultBox');
 
-        // File Selection Event
+        // File Selection Event Listener for Instant Image Preview
         fileInput.addEventListener('change', function () {
             const file = this.files[0];
 
@@ -103,7 +103,7 @@
             }
         });
 
-        // Upload Function
+        // Function to upload image to Render backend
         async function uploadImage() {
             const resultStatus = document.getElementById("resultStatus");
             const resultDetails = document.getElementById("resultDetails");
@@ -117,7 +117,7 @@
             const formData = new FormData();
             formData.append("file", fileInput.files[0]);
 
-            // Set Loading State
+            // Set Loading UI
             analyzeBtn.disabled = true;
             analyzeBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Processing...`;
             
@@ -132,12 +132,13 @@
                 });
 
                 if (!response.ok) {
-                    showError();
+                    showError(response.status);
                     return;
                 }
 
                 const data = await response.json();
 
+                // Style result box dynamically based on prediction
                 if (data.result === "Malignant") {
                     resultBox.className = "mt-6 p-4 rounded-xl border text-center border-red-500/30 bg-red-500/10 text-red-400 block";
                 } else {
@@ -149,16 +150,16 @@
 
             } catch (error) {
                 console.error("Upload error details:", error);
-                showError();
+                showError(500);
             } finally {
                 analyzeBtn.disabled = false;
                 analyzeBtn.innerHTML = `<i class="fa-solid fa-microscope"></i> <span>Analyze Image</span>`;
             }
         }
 
-        function showError() {
+        function showError(status) {
             resultBox.className = "mt-6 p-4 rounded-xl border text-center border-rose-500/40 bg-rose-500/10 text-rose-400 block";
-            resultStatus.innerText = "❌ Connection Error!\nServer status: 500";
+            resultStatus.innerText = `❌ Connection Error!\nServer status: ${status}`;
             resultDetails.innerText = "Please check server logs or redeploy backend using TFLite.";
         }
     </script>
