@@ -77,58 +77,58 @@
 
 <script>
     // ✅ সঠিকভাবে /predict সহ সম্পূর্ণ API URL ডিক্লেয়ার করা হয়েছে
-    const RENDER_API_URL = "https://breast-cencer-detection-ai-final.onrender.com/predict";
+   const API_URL = "https://breast-cencer-detection-ai-final.onrender.com/predict";
 
-    function previewFile() {
-        const file = document.getElementById('fileInput').files[0];
-        if (file) {
-            document.getElementById('uploadLabel').innerText = "📄 Selected: " + file.name;
-        }
+async function uploadImage() {
+    const fileInput = document.getElementById("fileInput"); // Match your input element ID
+    const resultElement = document.getElementById("result");   // Match your output container ID
+
+    if (!fileInput || !fileInput.files[0]) {
+        alert("Please select an image file first.");
+        return;
     }
 
-    async function uploadImage() {
-        const fileInput = document.getElementById('fileInput');
-        const resultBox = document.getElementById('result-box');
+    const formData = new FormData();
+    formData.append("file", fileInput.files[0]);
 
-        if (!fileInput.files[0]) {
-            alert("Please select an image first!");
-            return;
+    // Show loading state
+    if (resultElement) {
+        resultElement.innerText = "⏳ Processing image...";
+    }
+
+    try {
+        const response = await fetch(API_URL, {
+            method: "POST",
+            body: formData,
+        });
+
+        // Check if server returned a 500 or any non-OK HTTP status code
+        if (!response.ok) {
+            if (response.status === 500) {
+                if (resultElement) {
+                    resultElement.innerText = "❌ Connection Error!\nServer status: 500";
+                }
+                return;
+            }
+            throw new Error(`Server status: ${response.status}`);
         }
 
-        resultBox.style.display = "block";
-        resultBox.className = "";
-        resultBox.style.background = "#e2e8f0";
-        resultBox.style.color = "#334155";
-        resultBox.innerHTML = "⏳ Waking up server & Analyzing image...<br><small>(First load may take 30-60 seconds)</small>";
+        const data = await response.json();
 
-        const formData = new FormData();
-        formData.append("file", fileInput.files[0]);
+        // Update output with prediction results
+        if (resultElement) {
+            resultElement.innerText = `Result: ${data.result}\nConfidence: ${data.confidence}`;
+        }
 
-        try {
-            const response = await fetch(RENDER_API_URL, {
-                method: "POST",
-                body: formData
-            });
-
-            if (!response.ok) {
-                throw new Error(`Server status: ${response.status}`);
-            }
-
-            const data = await response.json();
-
-            if (data.result) {
-                resultBox.className = data.result.toLowerCase();
-                resultBox.innerHTML = `Result: ${data.result}<br><small>Confidence: ${data.confidence}</small>`;
-            } else {
-                resultBox.innerText = "Error: " + (data.error || "Failed to process image");
-            }
-        } catch (err) {
-            resultBox.style.background = "#fee2e2";
-            resultBox.style.color = "#991b1b";
-            resultBox.innerHTML = `❌ Connection Error!<br><small>${err.message}</small>`;
-            console.error("Fetch Error Details:", err);
+    } catch (error) {
+        console.error("Fetch error details:", error);
+        
+        // Output format on any connection or server error
+        if (resultElement) {
+            resultElement.innerText = "❌ Connection Error!\nServer status: 500";
         }
     }
+}
 </script>
 
 </body>
