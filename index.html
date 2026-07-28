@@ -3,133 +3,176 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>Breast Cancer AI Detection</title>
-    <style>
-        body { 
-            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; 
-            background: #f0f4f8; 
-            display: flex; 
-            justify-content: center; 
-            align-items: center; 
-            min-height: 100vh; 
-            margin: 0; 
-        }
-        .card { 
-            background: white; 
-            padding: 30px; 
-            border-radius: 12px; 
-            box-shadow: 0 4px 20px rgba(0,0,0,0.1); 
-            width: 100%; 
-            max-width: 450px; 
-            text-align: center; 
-        }
-        h2 { color: #1e3a8a; margin-bottom: 20px; }
-        .upload-btn { 
-            border: 2px dashed #3b82f6; 
-            padding: 25px; 
-            border-radius: 8px; 
-            cursor: pointer; 
-            background: #eff6ff; 
-            color: #1d4ed8; 
-            margin-bottom: 20px; 
-            font-weight: 600; 
-            display: block;
-        }
-        input[type="file"] { display: none; }
-        button { 
-            background: #2563eb; 
-            color: white; 
-            border: none; 
-            padding: 12px 24px; 
-            font-size: 16px; 
-            border-radius: 6px; 
-            cursor: pointer; 
-            width: 100%; 
-            font-weight: bold; 
-        }
-        button:hover { background: #1d4ed8; }
-        #result-box { 
-            margin-top: 20px; 
-            font-size: 18px; 
-            font-weight: bold; 
-            display: none; 
-            padding: 15px; 
-            border-radius: 6px; 
-        }
-        .benign { background: #dcfce7; color: #15803d; }
-        .malignant { background: #fee2e2; color: #b91c1c; }
-    </style>
+    <title>Breast Cancer Detection AI</title>
+    <!-- Tailwind CSS CDN for modern UI styling -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
 </head>
-<body>
+<body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between font-sans">
 
-<div class="card">
-    <h2>🔬 AI Breast Cancer Detection</h2>
-    
-    <label class="upload-btn" for="fileInput" id="uploadLabel">
-        📸 Click to Upload Image
-    </label>
-    <input type="file" id="fileInput" accept="image/*" onchange="previewFile()">
+    <!-- Header Section -->
+    <header class="border-b border-slate-800 bg-slate-950/50 backdrop-blur-md py-4 px-6 sticky top-0 z-50">
+        <div class="max-w-4xl mx-auto flex items-center justify-between">
+            <div class="flex items-center space-x-3">
+                <div class="p-2 bg-indigo-600 rounded-lg text-white">
+                    <i class="fa-solid font-bold fa-heart-pulse text-xl"></i>
+                </div>
+                <h1 class="text-xl font-bold tracking-wide text-white">OncoVision <span class="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded border border-indigo-500/30">AI</span></h1>
+            </div>
+            <span class="text-xs text-slate-400 border border-slate-700 px-3 py-1 rounded-full">Breast Cancer Diagnostic Assistant</span>
+        </div>
+    </header>
 
-    <button onclick="uploadImage()">Analyze Image</button>
+    <!-- Main Container -->
+    <main class="max-w-xl mx-auto w-full px-4 py-8 flex-grow flex flex-col justify-center">
+        
+        <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
+            <div class="text-center mb-6">
+                <h2 class="text-2xl font-semibold text-white mb-2">Upload Histopathology Image</h2>
+                <p class="text-slate-400 text-sm">Upload a microscopic tissue image to analyze potential malignancy.</p>
+            </div>
 
-    <div id="result-box"></div>
-</div>
+            <!-- Upload Area -->
+            <div class="relative border-2 border-dashed border-slate-600 hover:border-indigo-500 rounded-xl p-6 transition-all duration-200 text-center cursor-pointer bg-slate-900/40 group mb-6" id="drop-zone">
+                <input type="file" id="fileInput" accept="image/*" onchange="previewFile()" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
+                
+                <!-- Default Placeholder -->
+                <div id="upload-placeholder" class="flex flex-col items-center justify-center space-y-3">
+                    <div class="p-4 bg-slate-800 rounded-full text-indigo-400 group-hover:scale-110 transition-transform duration-200">
+                        <i class="fa-solid fa-cloud-arrow-up text-3xl"></i>
+                    </div>
+                    <div>
+                        <p class="text-sm font-medium text-slate-200">Click to upload or drag & drop</p>
+                        <p class="text-xs text-slate-500 mt-1">PNG, JPG, or JPEG (Recommended size: 224x224)</p>
+                    </div>
+                </div>
 
-<script>
-    // ✅ সঠিকভাবে /predict সহ সম্পূর্ণ API URL ডিক্লেয়ার করা হয়েছে
-   const API_URL = "https://breast-cencer-detection-ai-final.onrender.com/predict";
+                <!-- Preview Container -->
+                <div id="previewContainer" class="hidden flex flex-col items-center justify-center space-y-3">
+                    <img id="imagePreview" src="" alt="Selected Preview" class="max-h-56 rounded-lg object-contain shadow-lg border border-slate-700" />
+                    <span class="text-xs text-indigo-400 hover:underline">Click to change image</span>
+                </div>
+            </div>
 
-async function uploadImage() {
-    const fileInput = document.getElementById("fileInput"); // Match your input element ID
-    const resultElement = document.getElementById("result");   // Match your output container ID
+            <!-- Action Button -->
+            <button id="analyzeBtn" onclick="uploadImage()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-3 px-4 rounded-xl shadow-lg transition-all duration-200 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed">
+                <i class="fa-solid fa-microscope"></i>
+                <span>Analyze Image</span>
+            </button>
 
-    if (!fileInput || !fileInput.files[0]) {
-        alert("Please select an image file first.");
-        return;
-    }
+            <!-- Results Output Display -->
+            <div id="resultBox" class="mt-6 hidden p-4 rounded-xl border text-center transition-all duration-300">
+                <h3 id="resultStatus" class="font-bold text-lg mb-1"></h3>
+                <p id="resultDetails" class="text-sm font-medium text-slate-300"></p>
+            </div>
+        </div>
 
-    const formData = new FormData();
-    formData.append("file", fileInput.files[0]);
+    </main>
 
-    // Show loading state
-    if (resultElement) {
-        resultElement.innerText = "⏳ Processing image...";
-    }
+    <!-- Footer -->
+    <footer class="text-center py-4 border-t border-slate-800/80 text-xs text-slate-500">
+        <p>© 2026 OncoVision AI System. For research and clinical decision support purposes only.</p>
+    </footer>
 
-    try {
-        const response = await fetch(API_URL, {
-            method: "POST",
-            body: formData,
-        });
+    <!-- JavaScript Handling -->
+    <script>
+        // Update this to match your actual Render deployment backend URL
+        const API_URL = "https://breast-cencer-detection-ai-final.onrender.com/predict";
 
-        // Check if server returned a 500 or any non-OK HTTP status code
-        if (!response.ok) {
-            if (response.status === 500) {
-                if (resultElement) {
-                    resultElement.innerText = "❌ Connection Error!\nServer status: 500";
-                }
+        // Function 1: Handles previewing image when file is selected
+        function previewFile() {
+            const fileInput = document.getElementById('fileInput');
+            const previewContainer = document.getElementById('previewContainer');
+            const uploadPlaceholder = document.getElementById('upload-placeholder');
+            const imagePreview = document.getElementById('imagePreview');
+            const resultBox = document.getElementById('resultBox');
+
+            const file = fileInput.files[0];
+
+            if (file) {
+                const reader = new FileReader();
+                reader.onload = function (e) {
+                    imagePreview.src = e.target.result;
+                    uploadPlaceholder.classList.add('hidden');
+                    previewContainer.classList.remove('hidden');
+                    resultBox.classList.add('hidden'); // Reset output on new upload
+                };
+                reader.readAsDataURL(file);
+            }
+        }
+
+        // Attach function directly to window object to prevent any ReferenceError scope issues
+        window.previewFile = previewFile;
+
+        // Function 2: Sends image file to backend Flask API
+        async function uploadImage() {
+            const fileInput = document.getElementById("fileInput");
+            const resultBox = document.getElementById("resultBox");
+            const resultStatus = document.getElementById("resultStatus");
+            const resultDetails = document.getElementById("resultDetails");
+            const analyzeBtn = document.getElementById("analyzeBtn");
+
+            if (!fileInput.files[0]) {
+                alert("Please select an image file first.");
                 return;
             }
-            throw new Error(`Server status: ${response.status}`);
+
+            const formData = new FormData();
+            formData.append("file", fileInput.files[0]);
+
+            // Set Loading UI
+            analyzeBtn.disabled = true;
+            analyzeBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Processing...`;
+            
+            resultBox.className = "mt-6 p-4 rounded-xl border text-center border-indigo-500/30 bg-indigo-500/10 text-indigo-300 block";
+            resultStatus.innerText = "Analyzing tissue sample...";
+            resultDetails.innerText = "Connecting to model endpoint...";
+
+            try {
+                const response = await fetch(API_URL, {
+                    method: "POST",
+                    body: formData,
+                });
+
+                if (!response.ok) {
+                    if (response.status === 500) {
+                        showError("❌ Connection Error!\nServer status: 500");
+                        return;
+                    }
+                    throw new Error(`Server status: ${response.status}`);
+                }
+
+                const data = await response.json();
+
+                // Display success output based on model response
+                if (data.result === "Malignant") {
+                    resultBox.className = "mt-6 p-4 rounded-xl border text-center border-red-500/30 bg-red-500/10 text-red-400 block";
+                } else {
+                    resultBox.className = "mt-6 p-4 rounded-xl border text-center border-emerald-500/30 bg-emerald-500/10 text-emerald-400 block";
+                }
+
+                resultStatus.innerText = `Result: ${data.result}`;
+                resultDetails.innerText = `Model Confidence: ${data.confidence}`;
+
+            } catch (error) {
+                console.error("Upload error details:", error);
+                showError("❌ Connection Error!\nServer status: 500");
+            } finally {
+                // Reset Button UI
+                analyzeBtn.disabled = false;
+                analyzeBtn.innerHTML = `<i class="fa-solid fa-microscope"></i> <span>Analyze Image</span>`;
+            }
         }
 
-        const data = await response.json();
+        function showError(message) {
+            const resultBox = document.getElementById("resultBox");
+            const resultStatus = document.getElementById("resultStatus");
+            const resultDetails = document.getElementById("resultDetails");
 
-        // Update output with prediction results
-        if (resultElement) {
-            resultElement.innerText = `Result: ${data.result}\nConfidence: ${data.confidence}`;
+            resultBox.className = "mt-6 p-4 rounded-xl border text-center border-rose-500/40 bg-rose-500/10 text-rose-400 block";
+            resultStatus.innerText = message;
+            resultDetails.innerText = "Please check server logs or redeploy using TFLite.";
         }
-
-    } catch (error) {
-        console.error("Fetch error details:", error);
-        
-        // Output format on any connection or server error
-        if (resultElement) {
-            resultElement.innerText = "❌ Connection Error!\nServer status: 500";
-        }
-    }
-}
-</script>
-
+    </script>
 </body>
 </html>
