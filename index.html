@@ -34,7 +34,6 @@
 
             <!-- Upload Area -->
             <div class="relative border-2 border-dashed border-slate-600 hover:border-indigo-500 rounded-xl p-6 transition-all duration-200 text-center cursor-pointer bg-slate-900/40 group mb-6">
-                <!-- Direct Event Listener -->
                 <input type="file" id="fileInput" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
                 
                 <!-- Default Placeholder -->
@@ -63,7 +62,7 @@
 
             <!-- Results Output Display -->
             <div id="resultBox" class="mt-6 hidden p-4 rounded-xl border text-center transition-all duration-300">
-                <h3 id="resultStatus" class="font-bold text-lg mb-1"></h3>
+                <h3 id="resultStatus" class="font-bold text-lg mb-1 whitespace-pre-line"></h3>
                 <p id="resultDetails" class="text-sm font-medium text-slate-300"></p>
             </div>
         </div>
@@ -86,7 +85,7 @@
         const imagePreview = document.getElementById('imagePreview');
         const resultBox = document.getElementById('resultBox');
 
-        // File Select Event
+        // File Selection Event
         fileInput.addEventListener('change', function () {
             const file = this.files[0];
 
@@ -97,14 +96,14 @@
                     imagePreview.src = e.target.result;
                     uploadPlaceholder.classList.add('hidden');
                     previewContainer.classList.remove('hidden');
-                    resultBox.classList.add('hidden'); // Clear output box on new selection
+                    resultBox.classList.add('hidden');
                 };
 
                 reader.readAsDataURL(file);
             }
         });
 
-        // API Upload Function
+        // Upload Function
         async function uploadImage() {
             const resultStatus = document.getElementById("resultStatus");
             const resultDetails = document.getElementById("resultDetails");
@@ -118,7 +117,7 @@
             const formData = new FormData();
             formData.append("file", fileInput.files[0]);
 
-            // Set Loading UI
+            // Set Loading State
             analyzeBtn.disabled = true;
             analyzeBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Processing...`;
             
@@ -133,7 +132,7 @@
                 });
 
                 if (!response.ok) {
-                    showError("❌ Connection Error!\nServer status: " + response.status);
+                    showError();
                     return;
                 }
 
@@ -150,16 +149,16 @@
 
             } catch (error) {
                 console.error("Upload error details:", error);
-                showError("❌ Connection Error!\nServer status: 500");
+                showError();
             } finally {
                 analyzeBtn.disabled = false;
                 analyzeBtn.innerHTML = `<i class="fa-solid fa-microscope"></i> <span>Analyze Image</span>`;
             }
         }
 
-        function showError(message) {
+        function showError() {
             resultBox.className = "mt-6 p-4 rounded-xl border text-center border-rose-500/40 bg-rose-500/10 text-rose-400 block";
-            resultStatus.innerText = message;
+            resultStatus.innerText = "❌ Connection Error!\nServer status: 500";
             resultDetails.innerText = "Please check server logs or redeploy backend using TFLite.";
         }
     </script>
