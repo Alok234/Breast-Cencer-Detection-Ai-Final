@@ -63,7 +63,7 @@
             <!-- Results Output Display -->
             <div id="resultBox" class="mt-6 hidden p-4 rounded-xl border text-center transition-all duration-300">
                 <h3 id="resultStatus" class="font-bold text-lg mb-1 whitespace-pre-line"></h3>
-                <p id="resultDetails" class="text-sm font-medium text-slate-300"></p>
+                <p id="resultDetails" class="text-sm font-medium text-slate-300 break-words font-mono text-xs mt-2"></p>
             </div>
         </div>
 
@@ -85,7 +85,7 @@
         const imagePreview = document.getElementById('imagePreview');
         const resultBox = document.getElementById('resultBox');
 
-        // File Selection Event Listener for Instant Image Preview
+        // Instant Preview Event Listener
         fileInput.addEventListener('change', function () {
             const file = this.files[0];
 
@@ -103,7 +103,7 @@
             }
         });
 
-        // Function to upload image to Render backend
+        // Upload Function
         async function uploadImage() {
             const resultStatus = document.getElementById("resultStatus");
             const resultDetails = document.getElementById("resultDetails");
@@ -131,36 +131,37 @@
                     body: formData,
                 });
 
+                const rawData = await response.json().catch(() => null);
+
                 if (!response.ok) {
-                    showError(response.status);
+                    const serverMsg = rawData && rawData.error ? rawData.error : `HTTP Status ${response.status}`;
+                    showError(response.status, serverMsg);
                     return;
                 }
 
-                const data = await response.json();
-
-                // Style result box dynamically based on prediction
-                if (data.result === "Malignant") {
+                // Render dynamic diagnosis response
+                if (rawData.result === "Malignant") {
                     resultBox.className = "mt-6 p-4 rounded-xl border text-center border-red-500/30 bg-red-500/10 text-red-400 block";
                 } else {
                     resultBox.className = "mt-6 p-4 rounded-xl border text-center border-emerald-500/30 bg-emerald-500/10 text-emerald-400 block";
                 }
 
-                resultStatus.innerText = `Result: ${data.result}`;
-                resultDetails.innerText = `Model Confidence: ${data.confidence}`;
+                resultStatus.innerText = `Result: ${rawData.result}`;
+                resultDetails.innerText = `Model Confidence: ${rawData.confidence}`;
 
             } catch (error) {
                 console.error("Upload error details:", error);
-                showError(500);
+                showError(500, error.message || "Network / CORS Request Error");
             } finally {
                 analyzeBtn.disabled = false;
                 analyzeBtn.innerHTML = `<i class="fa-solid fa-microscope"></i> <span>Analyze Image</span>`;
             }
         }
 
-        function showError(status) {
+        function showError(status, details) {
             resultBox.className = "mt-6 p-4 rounded-xl border text-center border-rose-500/40 bg-rose-500/10 text-rose-400 block";
             resultStatus.innerText = `❌ Connection Error!\nServer status: ${status}`;
-            resultDetails.innerText = "Please check server logs or redeploy backend using TFLite.";
+            resultDetails.innerText = `Details: ${details || "Please check server logs or redeploy backend using TFLite."}`;
         }
     </script>
 </body>
