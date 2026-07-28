@@ -4,7 +4,8 @@ import numpy as np
 from flask import Flask, request, jsonify
 from flask_cors import CORS
 from huggingface_hub import hf_hub_download
-import tflite_runtime.interpreter as tflite
+import tensorflow.lite as tflite
+
 
 app = Flask(__name__)
 CORS(app, resources={r"/*": {"origins": "*"}})
