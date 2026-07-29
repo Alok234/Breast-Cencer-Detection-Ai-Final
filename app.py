@@ -44,22 +44,29 @@ if session:
 
 IMG_SIZE = 224
 
-# 💡 Fixed Class Mapping: Index 0 = Malignant, Index 1 = Benign
-CLASS_NAMES = ["Malignant", "Benign"]
+# Standard Binary Classification Mapping: Index 0 = Benign, Index 1 = Malignant
+CLASS_NAMES = ["Benign", "Malignant"]
 
 def preprocess_image(image_bytes):
+    """Accurate Preprocessing for Deep Learning Hybrid/BreakHis Models"""
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     
     if img is None:
         raise ValueError("Invalid image file uploaded.")
         
+    # Convert OpenCV BGR to RGB
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
     
-    # Standard 0-1 scaling
+    # Normalization Range [0, 1]
     img = img.astype(np.float32) / 255.0
     
+    # Apply Standard Mean/Std (ImageNet Standard used in BreakHis Fine-tuning)
+    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+    std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+    img = (img - mean) / std
+
     img = np.expand_dims(img, axis=0)
     return img
 
@@ -94,12 +101,13 @@ def predict():
         raw_score = float(output_data.flatten()[0])
         print(f"🔍 [DEBUG] Raw Model Output Score: {raw_score}")
 
-        # Classification logic based on inverted mapping
+        # Correct Threshold Logic
+        # Raw score high -> Malignant, Raw score low -> Benign
         if raw_score > 0.5:
-            result = CLASS_NAMES[1]  # Benign (~98.38% confidence)
+            result = CLASS_NAMES[1]  # Malignant
             confidence = raw_score * 100.0
         else:
-            result = CLASS_NAMES[0]  # Malignant
+            result = CLASS_NAMES[0]  # Benign
             confidence = (1.0 - raw_score) * 100.0
 
         return jsonify({
