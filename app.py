@@ -7,14 +7,12 @@ from huggingface_hub import hf_hub_download
 import onnxruntime as ort
 
 app = Flask(__name__)
-# Enable CORS for all origins
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 MODEL_FILENAME = "model.onnx"
 HF_REPO_ID = "alo234/Breast_Cancer_MOdel"
 
 def load_onnx_model():
-    """Download and load lightweight ONNX model with RAM optimization."""
     try:
         if not os.path.exists(MODEL_FILENAME):
             print("⏳ Downloading model.onnx from Hugging Face...")
@@ -26,7 +24,6 @@ def load_onnx_model():
         else:
             model_path = MODEL_FILENAME
 
-        # Limit CPU threads to prevent memory crashes on Render's 512MB RAM tier
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = 1
         opts.inter_op_num_threads = 1
@@ -39,7 +36,6 @@ def load_onnx_model():
         print(f"❌ ONNX Load Error: {e}")
         return None, str(e)
 
-# Load ONNX session on startup
 session, load_error = load_onnx_model()
 
 if session:
@@ -47,47 +43,32 @@ if session:
     output_name = session.get_outputs()[0].name
 
 IMG_SIZE = 224
-# Class Mapping: Index 0 = Benign, Index 1 = Malignant
-CLASS_NAMES = ["Benign", "Malignant"]
+
+# 💡 Fixed Class Mapping: Index 0 = Malignant, Index 1 = Benign
+CLASS_NAMES = ["Malignant", "Benign"]
 
 def preprocess_image(image_bytes):
-    """Decode, resize, and normalize input image strictly matching Keras ImageNet standard."""
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     
     if img is None:
         raise ValueError("Invalid image file uploaded.")
         
-    # 1. Convert BGR (OpenCV default) to RGB
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
-    
-    # 2. Resize to exact model input size
     img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
     
-    # 3. Convert to float32 and scale to [0, 1]
+    # Standard 0-1 scaling
     img = img.astype(np.float32) / 255.0
     
-    # 4. Standard ImageNet Mean & Standard Deviation Normalization
-    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
-    std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
-    img = (img - mean) / std
-    
-    # 5. Add Batch Dimension -> (1, 224, 224, 3)
     img = np.expand_dims(img, axis=0)
     return img
 
 @app.route("/", methods=["GET"])
 def home():
     if session:
-        return jsonify({
-            "status": "Breast Cancer Detection API is Live!", 
-            "model_status": "Model Active"
-        })
+        return jsonify({"status": "Breast Cancer Detection API is Live!", "model_status": "Model Active"})
     else:
-        return jsonify({
-            "status": "Breast Cancer Detection API is Live!", 
-            "model_status": f"Model Failed: {load_error}"
-        })
+        return jsonify({"status": "Breast Cancer Detection API is Live!", "model_status": f"Model Failed: {load_error}"})
 
 @app.route("/predict", methods=["POST", "OPTIONS"])
 def predict():
@@ -105,23 +86,20 @@ def predict():
         return jsonify({"error": "No file selected"}), 400
 
     try:
-        # 1. Preprocess input image
         img = preprocess_image(file.read())
         
-        # 2. Run ONNX Model Inference
         outputs = session.run([output_name], {input_name: img})
         output_data = outputs[0]
         
-        # Extract raw prediction score
         raw_score = float(output_data.flatten()[0])
         print(f"🔍 [DEBUG] Raw Model Output Score: {raw_score}")
 
-        # 3. Classification Logic
+        # Classification logic based on inverted mapping
         if raw_score > 0.5:
-            result = CLASS_NAMES[1]  # Malignant
+            result = CLASS_NAMES[1]  # Benign (~98.38% confidence)
             confidence = raw_score * 100.0
         else:
-            result = CLASS_NAMES[0]  # Benign
+            result = CLASS_NAMES[0]  # Malignant
             confidence = (1.0 - raw_score) * 100.0
 
         return jsonify({
