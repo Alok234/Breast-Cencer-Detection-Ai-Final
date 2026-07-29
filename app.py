@@ -7,13 +7,14 @@ from huggingface_hub import hf_hub_download
 import onnxruntime as ort
 
 app = Flask(__name__)
+# Enable CORS for all domains
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 MODEL_FILENAME = "model.onnx"
 HF_REPO_ID = "alo234/Breast_Cancer_MOdel"
 
 def load_onnx_model():
-    """Download and load ONNX model."""
+    """Download and load lightweight ONNX model with RAM optimization."""
     try:
         if not os.path.exists(MODEL_FILENAME):
             print("⏳ Downloading model.onnx from Hugging Face...")
@@ -44,36 +45,45 @@ if session:
     output_name = session.get_outputs()[0].name
 
 IMG_SIZE = 224
-# Class Mapping: Index 0 = Benign, Index 1 = Malignant
+# Standard Binary Indexing: Index 0 = Benign, Index 1 = Malignant
 CLASS_NAMES = ["Benign", "Malignant"]
 
 def preprocess_image(image_bytes):
-    """Decode, resize and normalize image."""
+    """Decode, resize, normalize and convert NHWC -> NCHW for ONNX/PyTorch compatibility."""
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     
     if img is None:
         raise ValueError("Invalid image file uploaded.")
         
-    # Convert BGR to RGB
+    # 1. Convert BGR to RGB
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     
-    # Resize image to 224x224
+    # 2. Resize to 224x224
     img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
     
-    # Scale pixels to [0, 1]
+    # 3. Standard Scale [0, 1]
     img = img.astype(np.float32) / 255.0
     
-    # Add batch dimension -> (1, 224, 224, 3)
+    # 4. CRITICAL FIX: Convert from NHWC (224, 224, 3) to NCHW (3, 224, 224)
+    img = np.transpose(img, (2, 0, 1))
+    
+    # 5. Add Batch Dimension -> (1, 3, 224, 224)
     img = np.expand_dims(img, axis=0)
     return img
 
 @app.route("/", methods=["GET"])
 def home():
     if session:
-        return jsonify({"status": "Breast Cancer Detection API is Live!", "model_status": "Model Active"})
+        return jsonify({
+            "status": "Breast Cancer Detection API is Live!", 
+            "model_status": "Model Active"
+        })
     else:
-        return jsonify({"status": "Breast Cancer Detection API is Live!", "model_status": f"Model Failed: {load_error}"})
+        return jsonify({
+            "status": "Breast Cancer Detection API is Live!", 
+            "model_status": f"Model Failed: {load_error}"
+        })
 
 @app.route("/predict", methods=["POST", "OPTIONS"])
 def predict():
@@ -91,31 +101,23 @@ def predict():
         return jsonify({"error": "No file selected"}), 400
 
     try:
-        # 1. Preprocess Image
+        # 1. Preprocess uploaded image
         img = preprocess_image(file.read())
         
-        # 2. Run Model Inference
+        # 2. Run ONNX Model Inference
         outputs = session.run([output_name], {input_name: img})
         output_data = outputs[0]
         
-        print(f"🔍 [DEBUG] Full Raw Model Output: {output_data}")
+        raw_score = float(output_data.flatten()[0])
+        print(f"🔍 [DEBUG] Model Output Score: {raw_score}")
 
-        # 3. Smart Handling for Softmax vs Sigmoid Outputs
-        flat_output = output_data.flatten()
-        
-        if len(flat_output) >= 2: # Softmax / Multi-class Output [Benign_prob, Malignant_prob]
-            predicted_class_idx = int(np.argmax(flat_output))
-            result = CLASS_NAMES[predicted_class_idx]
-            confidence = float(flat_output[predicted_class_idx]) * 100.0
-            raw_score = float(flat_output[1]) # Malignant probability
-        else: # Sigmoid Output (1 single score)
-            raw_score = float(flat_output[0])
-            if raw_score > 0.5:
-                result = CLASS_NAMES[1]  # Malignant
-                confidence = raw_score * 100.0
-            else:
-                result = CLASS_NAMES[0]  # Benign
-                confidence = (1.0 - raw_score) * 100.0
+        # 3. Classification Logic (Threshold = 0.5)
+        if raw_score > 0.5:
+            result = CLASS_NAMES[1]  # Malignant
+            confidence = raw_score * 100.0
+        else:
+            result = CLASS_NAMES[0]  # Benign
+            confidence = (1.0 - raw_score) * 100.0
 
         return jsonify({
             "status": "success",
