@@ -7,7 +7,7 @@ from huggingface_hub import hf_hub_download
 import onnxruntime as ort
 
 app = Flask(__name__)
-# Enable CORS for all domains so GitHub Pages / Localhost can access it freely
+# Enable CORS for all origins
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 MODEL_FILENAME = "model.onnx"
@@ -51,20 +51,28 @@ IMG_SIZE = 224
 CLASS_NAMES = ["Benign", "Malignant"]
 
 def preprocess_image(image_bytes):
-    """Decode, resize, and normalize input image for inference."""
+    """Decode, resize, and normalize input image strictly matching Keras ImageNet standard."""
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     
     if img is None:
         raise ValueError("Invalid image file uploaded.")
         
+    # 1. Convert BGR (OpenCV default) to RGB
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    
+    # 2. Resize to exact model input size
     img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
     
-    # Standard scale [0, 1] normalization
+    # 3. Convert to float32 and scale to [0, 1]
     img = img.astype(np.float32) / 255.0
     
-    # Add batch dimension -> (1, 224, 224, 3)
+    # 4. Standard ImageNet Mean & Standard Deviation Normalization
+    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+    std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+    img = (img - mean) / std
+    
+    # 5. Add Batch Dimension -> (1, 224, 224, 3)
     img = np.expand_dims(img, axis=0)
     return img
 
@@ -97,18 +105,18 @@ def predict():
         return jsonify({"error": "No file selected"}), 400
 
     try:
-        # 1. Preprocess uploaded image
+        # 1. Preprocess input image
         img = preprocess_image(file.read())
         
         # 2. Run ONNX Model Inference
         outputs = session.run([output_name], {input_name: img})
         output_data = outputs[0]
         
-        # Extract raw score output
+        # Extract raw prediction score
         raw_score = float(output_data.flatten()[0])
-        print(f"🔍 [DEBUG] Raw Model Prediction Score: {raw_score}")
+        print(f"🔍 [DEBUG] Raw Model Output Score: {raw_score}")
 
-        # 3. Decision Logic (Threshold = 0.5)
+        # 3. Classification Logic
         if raw_score > 0.5:
             result = CLASS_NAMES[1]  # Malignant
             confidence = raw_score * 100.0
