@@ -7,7 +7,6 @@ from huggingface_hub import hf_hub_download
 import onnxruntime as ort
 
 app = Flask(__name__)
-# Enable CORS for all domains
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 MODEL_FILENAME = "model.onnx"
@@ -26,7 +25,6 @@ def load_onnx_model():
         else:
             model_path = MODEL_FILENAME
 
-        # Limit CPU threads to prevent RAM spikes on Render
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = 1
         opts.inter_op_num_threads = 1
@@ -39,37 +37,43 @@ def load_onnx_model():
         print(f"❌ ONNX Load Error: {e}")
         return None, str(e)
 
-# Load ONNX session on startup
 session, load_error = load_onnx_model()
 
 if session:
     input_name = session.get_inputs()[0].name
     output_name = session.get_outputs()[0].name
+    input_shape = session.get_inputs()[0].shape
+    print(f"ℹ️ Model Input Name: {input_name}, Input Shape: {input_shape}")
 
 IMG_SIZE = 224
-
-# Class Mapping: Index 0 = Benign, Index 1 = Malignant
 CLASS_NAMES = ["Benign", "Malignant"]
 
 def preprocess_image(image_bytes):
-    """Zero-centered [-1, 1] Normalization strictly for Keras Deep Learning models."""
+    """Robust preprocessing covering Channel-First (NCHW) and Channel-Last (NHWC)."""
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     
     if img is None:
         raise ValueError("Invalid image file uploaded.")
         
-    # Convert OpenCV BGR to RGB
+    # 1. BGR to RGB
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     
-    # Resize to exact input shape (224x224)
+    # 2. Resize
     img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
     
-    # Zero-centered [-1, 1] scaling (This fixes the 0.98 score stuck issue!)
-    img = (img.astype(np.float32) / 127.5) - 1.0
+    # 3. Normalize [0, 1]
+    img = img.astype(np.float32) / 255.0
     
-    # Add Batch Dimension -> (1, 224, 224, 3)
-    img = np.expand_dims(img, axis=0)
+    # 4. Check if Model expects NCHW (1, 3, 224, 224) or NHWC (1, 224, 224, 3)
+    # PyTorch converted ONNX models require NCHW layout
+    if len(input_shape) == 4 and input_shape[1] == 3:
+        # Transpose from (224, 224, 3) to (3, 224, 224)
+        img = np.transpose(img, (2, 0, 1))
+        img = np.expand_dims(img, axis=0)  # Shape: (1, 3, 224, 224)
+    else:
+        img = np.expand_dims(img, axis=0)  # Shape: (1, 224, 224, 3)
+        
     return img
 
 @app.route("/", methods=["GET"])
@@ -101,18 +105,14 @@ def predict():
         return jsonify({"error": "No file selected"}), 400
 
     try:
-        # 1. Preprocess uploaded image with zero-centered scaling
         img = preprocess_image(file.read())
         
-        # 2. Run ONNX Model Inference
         outputs = session.run([output_name], {input_name: img})
         output_data = outputs[0]
         
-        # Extract raw probability score
         raw_score = float(output_data.flatten()[0])
         print(f"🔍 [DEBUG] Raw Model Output Score: {raw_score}")
 
-        # 3. Decision Logic (Threshold = 0.5)
         if raw_score > 0.5:
             result = CLASS_NAMES[1]  # Malignant
             confidence = raw_score * 100.0
