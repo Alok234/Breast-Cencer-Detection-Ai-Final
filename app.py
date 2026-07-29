@@ -26,6 +26,7 @@ def load_onnx_model():
         else:
             model_path = MODEL_FILENAME
 
+        # Limit CPU threads to prevent RAM memory spikes on Render free tier
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = 1
         opts.inter_op_num_threads = 1
@@ -38,6 +39,7 @@ def load_onnx_model():
         print(f"❌ ONNX Load Error: {e}")
         return None, str(e)
 
+# Load ONNX session on startup
 session, load_error = load_onnx_model()
 
 if session:
@@ -49,7 +51,10 @@ IMG_SIZE = 224
 CLASS_NAMES = ["Benign", "Malignant"]
 
 def preprocess_image(image_bytes):
-    """Decode, resize, normalize and convert NHWC -> NCHW for ONNX/PyTorch compatibility."""
+    """
+    Decode, resize and normalize for Keras/TensorFlow NHWC layout (1, 224, 224, 3)
+    with Standard ImageNet Normalization.
+    """
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     
@@ -65,10 +70,12 @@ def preprocess_image(image_bytes):
     # 3. Standard Scale [0, 1]
     img = img.astype(np.float32) / 255.0
     
-    # 4. CRITICAL FIX: Convert from NHWC (224, 224, 3) to NCHW (3, 224, 224)
-    img = np.transpose(img, (2, 0, 1))
+    # 4. ImageNet Mean and Standard Deviation Normalization
+    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
+    std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
+    img = (img - mean) / std
     
-    # 5. Add Batch Dimension -> (1, 3, 224, 224)
+    # 5. Add Batch Dimension -> Shape: (1, 224, 224, 3) EXACT MATCH FOR MODEL
     img = np.expand_dims(img, axis=0)
     return img
 
@@ -111,7 +118,7 @@ def predict():
         raw_score = float(output_data.flatten()[0])
         print(f"🔍 [DEBUG] Model Output Score: {raw_score}")
 
-        # 3. Classification Logic (Threshold = 0.5)
+        # 3. Classification Logic
         if raw_score > 0.5:
             result = CLASS_NAMES[1]  # Malignant
             confidence = raw_score * 100.0
