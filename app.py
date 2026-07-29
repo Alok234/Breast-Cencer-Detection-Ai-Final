@@ -7,13 +7,14 @@ from huggingface_hub import hf_hub_download
 import onnxruntime as ort
 
 app = Flask(__name__)
+# Enable CORS for all domains so GitHub Pages / Localhost can access it freely
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 MODEL_FILENAME = "model.onnx"
 HF_REPO_ID = "alo234/Breast_Cancer_MOdel"
 
 def load_onnx_model():
-    """Download and load lightweight ONNX model."""
+    """Download and load lightweight ONNX model with RAM optimization."""
     try:
         if not os.path.exists(MODEL_FILENAME):
             print("⏳ Downloading model.onnx from Hugging Face...")
@@ -25,8 +26,13 @@ def load_onnx_model():
         else:
             model_path = MODEL_FILENAME
 
-        # Initialize ONNX Runtime Inference Session
-        session = ort.InferenceSession(model_path, providers=['CPUExecutionProvider'])
+        # Limit CPU threads to prevent memory crashes on Render's 512MB RAM tier
+        opts = ort.SessionOptions()
+        opts.intra_op_num_threads = 1
+        opts.inter_op_num_threads = 1
+        opts.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+
+        session = ort.InferenceSession(model_path, sess_options=opts, providers=['CPUExecutionProvider'])
         print("✅ ONNX Model Loaded Successfully!")
         return session, None
     except Exception as e:
@@ -41,10 +47,11 @@ if session:
     output_name = session.get_outputs()[0].name
 
 IMG_SIZE = 224
+# Class Mapping: Index 0 = Benign, Index 1 = Malignant
 CLASS_NAMES = ["Benign", "Malignant"]
 
 def preprocess_image(image_bytes):
-    """Decode and normalize image."""
+    """Decode, resize, and normalize input image for inference."""
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     
@@ -53,16 +60,26 @@ def preprocess_image(image_bytes):
         
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
     img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
-    img = img.astype(np.float32) / 255.0  # Normalize [0, 1]
+    
+    # Standard scale [0, 1] normalization
+    img = img.astype(np.float32) / 255.0
+    
+    # Add batch dimension -> (1, 224, 224, 3)
     img = np.expand_dims(img, axis=0)
     return img
 
 @app.route("/", methods=["GET"])
 def home():
     if session:
-        return jsonify({"status": "Breast Cancer Detection API is Live!", "model_status": "Model Active"})
+        return jsonify({
+            "status": "Breast Cancer Detection API is Live!", 
+            "model_status": "Model Active"
+        })
     else:
-        return jsonify({"status": "Breast Cancer Detection API is Live!", "model_status": f"Model Failed: {load_error}"})
+        return jsonify({
+            "status": "Breast Cancer Detection API is Live!", 
+            "model_status": f"Model Failed: {load_error}"
+        })
 
 @app.route("/predict", methods=["POST", "OPTIONS"])
 def predict():
@@ -80,21 +97,30 @@ def predict():
         return jsonify({"error": "No file selected"}), 400
 
     try:
+        # 1. Preprocess uploaded image
         img = preprocess_image(file.read())
         
-        # ONNX Model Inference
+        # 2. Run ONNX Model Inference
         outputs = session.run([output_name], {input_name: img})
         output_data = outputs[0]
         
-        pred = float(output_data.flatten()[0])
+        # Extract raw score output
+        raw_score = float(output_data.flatten()[0])
+        print(f"🔍 [DEBUG] Raw Model Prediction Score: {raw_score}")
 
-        result = CLASS_NAMES[1] if pred > 0.5 else CLASS_NAMES[0]
-        confidence = float(pred if pred > 0.5 else 1.0 - pred) * 100.0
+        # 3. Decision Logic (Threshold = 0.5)
+        if raw_score > 0.5:
+            result = CLASS_NAMES[1]  # Malignant
+            confidence = raw_score * 100.0
+        else:
+            result = CLASS_NAMES[0]  # Benign
+            confidence = (1.0 - raw_score) * 100.0
 
         return jsonify({
             "status": "success",
             "result": result,
-            "confidence": f"{confidence:.2f}%"
+            "confidence": f"{confidence:.2f}%",
+            "raw_score": raw_score
         }), 200
 
     except Exception as e:
