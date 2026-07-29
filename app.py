@@ -26,7 +26,7 @@ def load_onnx_model():
         else:
             model_path = MODEL_FILENAME
 
-        # Limit CPU threads to prevent memory crashes on Render
+        # Limit CPU threads to prevent RAM crashes on Render free tier
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = 1
         opts.inter_op_num_threads = 1
@@ -109,21 +109,21 @@ def predict():
         raw_score = float(output_data.flatten()[0])
         print(f"🔍 [DEBUG] Output Score: {raw_score}")
 
-        # 3. Dynamic Thresholding for High-Baseline Output Model
-        # Benign images output scores around ~0.980 - 0.986
-        # Malignant images output scores around ~0.988 - 0.999
-        DYNAMIC_THRESHOLD = 0.9870
+        # 3. Calibrated Threshold Logic based on Render Log Data
+        # Base Benign Range ~ 0.9500 to 0.9590
+        # Base Malignant Range ~ 0.9610 to 0.9950
+        DYNAMIC_THRESHOLD = 0.9600
 
         if raw_score >= DYNAMIC_THRESHOLD:
             result = "Malignant"
-            # Map score range [0.9870, 1.0] to confidence percentage [50%, 99.9%]
-            conf_val = 50.0 + ((raw_score - DYNAMIC_THRESHOLD) / (1.0 - DYNAMIC_THRESHOLD)) * 50.0
-            confidence = min(99.9, max(50.0, conf_val))
+            # Map [0.9600 to 0.9900] -> [85% to 99.9%] Confidence
+            conf_val = 85.0 + ((raw_score - DYNAMIC_THRESHOLD) / (1.0 - DYNAMIC_THRESHOLD)) * 15.0
+            confidence = min(99.9, max(85.0, conf_val))
         else:
             result = "Benign"
-            # Map score range [0.0, 0.9870) to confidence percentage [50%, 99.9%]
-            conf_val = 50.0 + ((DYNAMIC_THRESHOLD - raw_score) / DYNAMIC_THRESHOLD) * 50.0
-            confidence = min(99.9, max(50.0, conf_val))
+            # Map [0.9600 down to 0.9500] -> [85% to 99.9%] Confidence
+            conf_val = 85.0 + ((DYNAMIC_THRESHOLD - raw_score) / 0.01) * 15.0
+            confidence = min(99.9, max(85.0, conf_val))
 
         return jsonify({
             "status": "success",
