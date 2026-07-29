@@ -7,12 +7,14 @@ from huggingface_hub import hf_hub_download
 import onnxruntime as ort
 
 app = Flask(__name__)
+# Enable CORS for all domains
 CORS(app, resources={r"/*": {"origins": "*"}})
 
 MODEL_FILENAME = "model.onnx"
 HF_REPO_ID = "alo234/Breast_Cancer_MOdel"
 
 def load_onnx_model():
+    """Download and load lightweight ONNX model with RAM optimization."""
     try:
         if not os.path.exists(MODEL_FILENAME):
             print("⏳ Downloading model.onnx from Hugging Face...")
@@ -24,6 +26,7 @@ def load_onnx_model():
         else:
             model_path = MODEL_FILENAME
 
+        # Limit CPU threads to prevent RAM spikes on Render
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = 1
         opts.inter_op_num_threads = 1
@@ -36,6 +39,7 @@ def load_onnx_model():
         print(f"❌ ONNX Load Error: {e}")
         return None, str(e)
 
+# Load ONNX session on startup
 session, load_error = load_onnx_model()
 
 if session:
@@ -44,11 +48,11 @@ if session:
 
 IMG_SIZE = 224
 
-# Standard Binary Classification Mapping: Index 0 = Benign, Index 1 = Malignant
+# Class Mapping: Index 0 = Benign, Index 1 = Malignant
 CLASS_NAMES = ["Benign", "Malignant"]
 
 def preprocess_image(image_bytes):
-    """Accurate Preprocessing for Deep Learning Hybrid/BreakHis Models"""
+    """Zero-centered [-1, 1] Normalization strictly for Keras Deep Learning models."""
     nparr = np.frombuffer(image_bytes, np.uint8)
     img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
     
@@ -57,25 +61,29 @@ def preprocess_image(image_bytes):
         
     # Convert OpenCV BGR to RGB
     img = cv2.cvtColor(img, cv2.COLOR_BGR2RGB)
+    
+    # Resize to exact input shape (224x224)
     img = cv2.resize(img, (IMG_SIZE, IMG_SIZE))
     
-    # Normalization Range [0, 1]
-    img = img.astype(np.float32) / 255.0
+    # Zero-centered [-1, 1] scaling (This fixes the 0.98 score stuck issue!)
+    img = (img.astype(np.float32) / 127.5) - 1.0
     
-    # Apply Standard Mean/Std (ImageNet Standard used in BreakHis Fine-tuning)
-    mean = np.array([0.485, 0.456, 0.406], dtype=np.float32)
-    std = np.array([0.229, 0.224, 0.225], dtype=np.float32)
-    img = (img - mean) / std
-
+    # Add Batch Dimension -> (1, 224, 224, 3)
     img = np.expand_dims(img, axis=0)
     return img
 
 @app.route("/", methods=["GET"])
 def home():
     if session:
-        return jsonify({"status": "Breast Cancer Detection API is Live!", "model_status": "Model Active"})
+        return jsonify({
+            "status": "Breast Cancer Detection API is Live!", 
+            "model_status": "Model Active"
+        })
     else:
-        return jsonify({"status": "Breast Cancer Detection API is Live!", "model_status": f"Model Failed: {load_error}"})
+        return jsonify({
+            "status": "Breast Cancer Detection API is Live!", 
+            "model_status": f"Model Failed: {load_error}"
+        })
 
 @app.route("/predict", methods=["POST", "OPTIONS"])
 def predict():
@@ -93,16 +101,18 @@ def predict():
         return jsonify({"error": "No file selected"}), 400
 
     try:
+        # 1. Preprocess uploaded image with zero-centered scaling
         img = preprocess_image(file.read())
         
+        # 2. Run ONNX Model Inference
         outputs = session.run([output_name], {input_name: img})
         output_data = outputs[0]
         
+        # Extract raw probability score
         raw_score = float(output_data.flatten()[0])
         print(f"🔍 [DEBUG] Raw Model Output Score: {raw_score}")
 
-        # Correct Threshold Logic
-        # Raw score high -> Malignant, Raw score low -> Benign
+        # 3. Decision Logic (Threshold = 0.5)
         if raw_score > 0.5:
             result = CLASS_NAMES[1]  # Malignant
             confidence = raw_score * 100.0
