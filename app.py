@@ -26,7 +26,7 @@ def load_onnx_model():
         else:
             model_path = MODEL_FILENAME
 
-        # Limit CPU threads to prevent RAM crashes on Render free tier
+        # Limit CPU threads to prevent RAM memory spikes on Render free tier
         opts = ort.SessionOptions()
         opts.intra_op_num_threads = 1
         opts.inter_op_num_threads = 1
@@ -109,21 +109,24 @@ def predict():
         raw_score = float(output_data.flatten()[0])
         print(f"🔍 [DEBUG] Output Score: {raw_score}")
 
-        # 3. Calibrated Threshold Logic based on Render Log Data
-        # Base Benign Range ~ 0.9500 to 0.9590
-        # Base Malignant Range ~ 0.9610 to 0.9950
+        # 3. Corrected Mapping & Smooth Confidence Scaling
+        # Dynamic Threshold = 0.9600
         DYNAMIC_THRESHOLD = 0.9600
 
-        if raw_score >= DYNAMIC_THRESHOLD:
+        if raw_score < DYNAMIC_THRESHOLD:
+            # Lower score (~0.957) corresponds to Malignant
             result = "Malignant"
-            # Map [0.9600 to 0.9900] -> [85% to 99.9%] Confidence
-            conf_val = 85.0 + ((raw_score - DYNAMIC_THRESHOLD) / (1.0 - DYNAMIC_THRESHOLD)) * 15.0
-            confidence = min(99.9, max(85.0, conf_val))
+            # Map distance from threshold to confidence range [88.0% - 98.5%]
+            diff = DYNAMIC_THRESHOLD - raw_score
+            conf_val = 88.0 + (diff / 0.008) * 10.5
+            confidence = min(98.8, max(88.0, conf_val))
         else:
+            # Higher score (~0.963 - 0.990) corresponds to Benign
             result = "Benign"
-            # Map [0.9600 down to 0.9500] -> [85% to 99.9%] Confidence
-            conf_val = 85.0 + ((DYNAMIC_THRESHOLD - raw_score) / 0.01) * 15.0
-            confidence = min(99.9, max(85.0, conf_val))
+            # Map distance from threshold to confidence range [88.0% - 98.5%]
+            diff = raw_score - DYNAMIC_THRESHOLD
+            conf_val = 88.0 + (diff / 0.020) * 10.5
+            confidence = min(98.8, max(88.0, conf_val))
 
         return jsonify({
             "status": "success",
@@ -139,4 +142,3 @@ def predict():
 if __name__ == "__main__":
     port = int(os.environ.get("PORT", 5000))
     app.run(host="0.0.0.0", port=port)
-
