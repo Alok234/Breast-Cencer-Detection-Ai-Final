@@ -8,8 +8,19 @@ import onnxruntime as ort
 
 app = Flask(__name__)
 
-# Enable CORS
-CORS(app, resources={r"/*": {"origins": "*"}})
+# ============================================================
+# CORS
+# ============================================================
+
+CORS(
+    app,
+    resources={
+        r"/*": {
+            "origins": "*"
+        }
+    }
+)
+
 
 # ============================================================
 # CONFIGURATION
@@ -21,15 +32,14 @@ HF_REPO_ID = "alo234/Breast_Cancer_MOdel"
 IMG_SIZE = 224
 
 # IMPORTANT:
-# Change this only if your model was trained with the opposite
-# class order.
+# Based on your testing:
 #
-# For a single sigmoid output:
-# 0 = Benign
-# 1 = Malignant
+# HIGH SCORE  -> MALIGNANT
+# LOW SCORE   -> BENIGN
 #
-CLASS_0 = "Benign"
-CLASS_1 = "Malignant"
+# Example:
+# 0.9672 -> Malignant
+# 0.20   -> Benign
 
 
 # ============================================================
@@ -54,56 +64,106 @@ def load_onnx_model():
 
             model_path = MODEL_FILENAME
 
-        # RAM optimized settings for Render
+        # Render Free Tier RAM optimization
         opts = ort.SessionOptions()
 
         opts.intra_op_num_threads = 1
         opts.inter_op_num_threads = 1
-        opts.execution_mode = ort.ExecutionMode.ORT_SEQUENTIAL
+        opts.execution_mode = (
+            ort.ExecutionMode.ORT_SEQUENTIAL
+        )
 
+        # Load ONNX model
         session = ort.InferenceSession(
             model_path,
             sess_options=opts,
-            providers=["CPUExecutionProvider"]
+            providers=[
+                "CPUExecutionProvider"
+            ]
         )
 
+        print("")
         print("========================================")
-        print("ONNX MODEL LOADED SUCCESSFULLY")
+        print("       ONNX MODEL LOADED")
         print("========================================")
 
-        # Model input information
+        # Input information
         input_info = session.get_inputs()[0]
 
-        print("Input Name   :", input_info.name)
-        print("Input Shape  :", input_info.shape)
-        print("Input Type   :", input_info.type)
+        print(
+            "Input Name  :",
+            input_info.name
+        )
 
-        # Model output information
-        for i, output in enumerate(session.get_outputs()):
+        print(
+            "Input Shape :",
+            input_info.shape
+        )
 
-            print(f"Output {i} Name  :", output.name)
-            print(f"Output {i} Shape :", output.shape)
-            print(f"Output {i} Type  :", output.type)
+        print(
+            "Input Type  :",
+            input_info.type
+        )
+
+        # Output information
+        for i, output in enumerate(
+            session.get_outputs()
+        ):
+
+            print(
+                f"Output {i} Name  :",
+                output.name
+            )
+
+            print(
+                f"Output {i} Shape :",
+                output.shape
+            )
+
+            print(
+                f"Output {i} Type  :",
+                output.type
+            )
 
         print("========================================")
+        print("")
 
         return session, None
 
     except Exception as e:
 
-        print("ONNX MODEL LOAD ERROR:", str(e))
+        print(
+            "ONNX Model Load Error:",
+            str(e)
+        )
 
         return None, str(e)
 
 
-# Load model at startup
+# ============================================================
+# INITIALIZE MODEL
+# ============================================================
+
 session, load_error = load_onnx_model()
 
 
-if session:
+if session is not None:
 
-    input_name = session.get_inputs()[0].name
-    output_names = [output.name for output in session.get_outputs()]
+    input_name = (
+        session
+        .get_inputs()[0]
+        .name
+    )
+
+    output_names = [
+        output.name
+        for output in session.get_outputs()
+    ]
+
+else:
+
+    input_name = None
+    output_names = []
 
 
 # ============================================================
@@ -112,11 +172,17 @@ if session:
 
 def preprocess_image(image_bytes):
 
-    # Convert bytes to numpy array
-    nparr = np.frombuffer(image_bytes, np.uint8)
+    # Convert uploaded bytes to numpy
+    nparr = np.frombuffer(
+        image_bytes,
+        np.uint8
+    )
 
     # Decode image
-    img = cv2.imdecode(nparr, cv2.IMREAD_COLOR)
+    img = cv2.imdecode(
+        nparr,
+        cv2.IMREAD_COLOR
+    )
 
     if img is None:
 
@@ -124,40 +190,63 @@ def preprocess_image(image_bytes):
             "Invalid image file uploaded."
         )
 
+    # --------------------------------------------------------
     # BGR -> RGB
+    # --------------------------------------------------------
+
     img = cv2.cvtColor(
         img,
         cv2.COLOR_BGR2RGB
     )
 
-    # Resize
+    # --------------------------------------------------------
+    # Resize to model input
+    # --------------------------------------------------------
+
     img = cv2.resize(
         img,
         (IMG_SIZE, IMG_SIZE),
         interpolation=cv2.INTER_AREA
     )
 
+    # --------------------------------------------------------
     # Convert to float32
-    img = img.astype(np.float32)
+    # --------------------------------------------------------
 
+    img = img.astype(
+        np.float32
+    )
+
+    # --------------------------------------------------------
     # Normalize [0,255] -> [0,1]
+    #
+    # This matches your previous preprocessing.
+    # --------------------------------------------------------
+
     img = img / 255.0
 
+    # --------------------------------------------------------
     # Add batch dimension
+    #
+    # (224,224,3)
+    #        ↓
+    # (1,224,224,3)
+    # --------------------------------------------------------
+
     img = np.expand_dims(
         img,
         axis=0
     )
 
     print(
-        "Preprocessed Image Shape:",
+        "Preprocessed Shape:",
         img.shape
     )
 
     print(
-        "Image Min:",
+        "Pixel Range:",
         float(img.min()),
-        "Image Max:",
+        "to",
         float(img.max())
     )
 
@@ -165,46 +254,47 @@ def preprocess_image(image_bytes):
 
 
 # ============================================================
-# PREDICTION FUNCTION
+# MODEL OUTPUT INTERPRETATION
 # ============================================================
 
 def interpret_prediction(output_data):
 
-    """
-    Handles different ONNX output formats.
+    output = np.asarray(
+        output_data
+    )
 
-    Supported examples:
+    print("")
+    print("========================================")
+    print("RAW MODEL OUTPUT:")
+    print(output)
 
-    1. Single sigmoid:
-       [[0.73]]
-
-    2. Single value:
-       [0.73]
-
-    3. Two-class probability:
-       [[0.20, 0.80]]
-
-    """
-
-    output = np.asarray(output_data)
+    print(
+        "OUTPUT SHAPE:",
+        output.shape
+    )
 
     print("========================================")
-    print("RAW MODEL OUTPUT:", output)
-    print("OUTPUT SHAPE:", output.shape)
-    print("========================================")
 
-    # --------------------------------------------------------
-    # CASE 1: TWO CLASS OUTPUT
+    # ========================================================
+    # CASE 1:
+    # TWO CLASS OUTPUT
+    #
     # Example:
-    # [[0.20, 0.80]]
-    # --------------------------------------------------------
+    # [[0.10, 0.90]]
+    # ========================================================
 
     if output.size == 2:
 
-        probabilities = output.flatten().astype(float)
+        probabilities = (
+            output
+            .flatten()
+            .astype(float)
+        )
 
-        # If values are logits rather than probabilities,
-        # convert them using softmax.
+        # ----------------------------------------------------
+        # If values are logits, convert using softmax
+        # ----------------------------------------------------
+
         if (
             np.any(probabilities < 0)
             or np.any(probabilities > 1)
@@ -216,12 +306,13 @@ def interpret_prediction(output_data):
         ):
 
             exp_values = np.exp(
-                probabilities - np.max(probabilities)
+                probabilities
+                - np.max(probabilities)
             )
 
             probabilities = (
-                exp_values /
-                np.sum(exp_values)
+                exp_values
+                / np.sum(exp_values)
             )
 
         class_index = int(
@@ -232,66 +323,129 @@ def interpret_prediction(output_data):
             probabilities[class_index]
         )
 
+        # ----------------------------------------------------
+        # IMPORTANT CLASS MAPPING
+        #
+        # Based on your model testing:
+        #
+        # index 0 -> Malignant
+        # index 1 -> Benign
+        # ----------------------------------------------------
+
         if class_index == 0:
 
-            result = CLASS_0
+            result = "Malignant"
 
         else:
 
-            result = CLASS_1
+            result = "Benign"
 
-        return result, confidence, probabilities.tolist()
+        print(
+            "Class Index:",
+            class_index
+        )
+
+        print(
+            "Prediction:",
+            result
+        )
+
+        print(
+            "Confidence:",
+            f"{confidence * 100:.2f}%"
+        )
+
+        return (
+            result,
+            confidence,
+            probabilities.tolist()
+        )
 
 
-    # --------------------------------------------------------
-    # CASE 2: SINGLE OUTPUT
+    # ========================================================
+    # CASE 2:
+    # SINGLE OUTPUT
+    #
     # Example:
-    # [[0.73]]
-    # --------------------------------------------------------
+    # [[0.9672]]
+    #
+    # YOUR MODEL:
+    #
+    # HIGH SCORE -> MALIGNANT
+    # LOW SCORE  -> BENIGN
+    # ========================================================
 
     raw_score = float(
-        output.flatten()[0]
+        output
+        .flatten()[0]
     )
 
-    # If output looks like a logit instead of probability,
-    # apply sigmoid.
-    if raw_score < 0 or raw_score > 1:
+    # --------------------------------------------------------
+    # If output is a logit instead of probability
+    # --------------------------------------------------------
+
+    if (
+        raw_score < 0
+        or raw_score > 1
+    ):
 
         raw_score = 1.0 / (
-            1.0 + np.exp(-raw_score)
+            1.0
+            + np.exp(-raw_score)
         )
 
     # --------------------------------------------------------
-    # IMPORTANT
+    # YOUR MODEL MAPPING
     #
-    # For a standard binary sigmoid model:
-    #
-    # score < 0.5 -> class 0
-    # score >= 0.5 -> class 1
-    #
-    # Here:
-    # class 0 = Benign
-    # class 1 = Malignant
+    # score >= 0.5 -> Malignant
+    # score <  0.5 -> Benign
     # --------------------------------------------------------
 
     if raw_score >= 0.5:
 
-        result = CLASS_1
+        result = "Malignant"
+
         confidence = raw_score
 
     else:
 
-        result = CLASS_0
+        result = "Benign"
+
         confidence = 1.0 - raw_score
 
-    return result, confidence, raw_score
+    print(
+        "Score:",
+        raw_score
+    )
+
+    print(
+        "Prediction:",
+        result
+    )
+
+    print(
+        "Confidence:",
+        f"{confidence * 100:.2f}%"
+    )
+
+    print("========================================")
+    print("")
+
+    return (
+        result,
+        confidence,
+        raw_score
+    )
 
 
 # ============================================================
 # HOME ROUTE
 # ============================================================
 
-@app.route("/", methods=["GET"])
+@app.route(
+    "/",
+    methods=["GET"]
+)
 def home():
 
     if session is not None:
@@ -310,32 +464,36 @@ def home():
             "input_size":
                 "224x224",
 
+            "prediction_mapping":
+                "High score = Malignant",
+
             "endpoint":
                 "/predict"
 
         })
 
-    else:
+    return jsonify({
 
-        return jsonify({
+        "status":
+            "Breast Cancer Detection API is Live!",
 
-            "status":
-                "Breast Cancer Detection API is Live!",
+        "model_status":
+            "Model Failed",
 
-            "model_status":
-                "Model Failed",
+        "error":
+            load_error
 
-            "error":
-                load_error
-
-        }), 500
+    }), 500
 
 
 # ============================================================
 # HEALTH CHECK
 # ============================================================
 
-@app.route("/health", methods=["GET"])
+@app.route(
+    "/health",
+    methods=["GET"]
+)
 def health():
 
     if session is not None:
@@ -343,21 +501,28 @@ def health():
         return jsonify({
 
             "status": "healthy",
-            "model": "loaded"
+
+            "model":
+                "loaded"
 
         })
 
     return jsonify({
 
-        "status": "unhealthy",
-        "model": "not loaded",
-        "error": load_error
+        "status":
+            "unhealthy",
+
+        "model":
+            "not loaded",
+
+        "error":
+            load_error
 
     }), 500
 
 
 # ============================================================
-# PREDICTION ROUTE
+# PREDICTION API
 # ============================================================
 
 @app.route(
@@ -366,29 +531,40 @@ def health():
 )
 def predict():
 
+    # --------------------------------------------------------
     # CORS preflight
+    # --------------------------------------------------------
+
     if request.method == "OPTIONS":
 
         return "", 200
 
+    # --------------------------------------------------------
     # Check model
+    # --------------------------------------------------------
+
     if session is None:
 
         return jsonify({
 
-            "status": "error",
+            "status":
+                "error",
 
             "error":
                 f"Model failed to load: {load_error}"
 
         }), 500
 
-    # Check file
+    # --------------------------------------------------------
+    # Check uploaded file
+    # --------------------------------------------------------
+
     if "file" not in request.files:
 
         return jsonify({
 
-            "status": "error",
+            "status":
+                "error",
 
             "error":
                 "No file uploaded."
@@ -401,7 +577,8 @@ def predict():
 
         return jsonify({
 
-            "status": "error",
+            "status":
+                "error",
 
             "error":
                 "No file selected."
@@ -410,9 +587,9 @@ def predict():
 
     try:
 
-        # ----------------------------------------------------
-        # 1. READ IMAGE
-        # ----------------------------------------------------
+        # ====================================================
+        # STEP 1: READ IMAGE
+        # ====================================================
 
         image_bytes = file.read()
 
@@ -420,7 +597,8 @@ def predict():
 
             return jsonify({
 
-                "status": "error",
+                "status":
+                    "error",
 
                 "error":
                     "Uploaded file is empty."
@@ -428,18 +606,18 @@ def predict():
             }), 400
 
 
-        # ----------------------------------------------------
-        # 2. PREPROCESS
-        # ----------------------------------------------------
+        # ====================================================
+        # STEP 2: PREPROCESS IMAGE
+        # ====================================================
 
         img = preprocess_image(
             image_bytes
         )
 
 
-        # ----------------------------------------------------
-        # 3. MODEL INFERENCE
-        # ----------------------------------------------------
+        # ====================================================
+        # STEP 3: RUN ONNX MODEL
+        # ====================================================
 
         outputs = session.run(
             output_names,
@@ -449,32 +627,35 @@ def predict():
         )
 
 
+        # Get first output
         output_data = outputs[0]
 
 
-        # ----------------------------------------------------
-        # 4. INTERPRET MODEL OUTPUT
-        # ----------------------------------------------------
+        # ====================================================
+        # STEP 4: INTERPRET RESULT
+        # ====================================================
 
-        result, confidence, raw_output = (
-            interpret_prediction(
-                output_data
-            )
+        (
+            result,
+            confidence,
+            raw_output
+        ) = interpret_prediction(
+            output_data
         )
 
 
-        # ----------------------------------------------------
-        # 5. FORMAT CONFIDENCE
-        # ----------------------------------------------------
+        # ====================================================
+        # STEP 5: CONFIDENCE
+        # ====================================================
 
         confidence_percent = (
-            float(confidence) * 100.0
+            confidence * 100.0
         )
 
 
-        # ----------------------------------------------------
-        # 6. RESPONSE
-        # ----------------------------------------------------
+        # ====================================================
+        # STEP 6: RESPONSE
+        # ====================================================
 
         response = {
 
@@ -492,27 +673,49 @@ def predict():
 
         }
 
+
+        print("")
         print("========================================")
-        print("FINAL RESULT:", result)
-        print(
-            "CONFIDENCE:",
-            f"{confidence_percent:.2f}%"
-        )
+        print("FINAL API RESPONSE")
         print("========================================")
 
-        return jsonify(response), 200
+        print(
+            "Result:",
+            result
+        )
+
+        print(
+            "Confidence:",
+            f"{confidence_percent:.2f}%"
+        )
+
+        print(
+            "Raw Score:",
+            raw_output
+        )
+
+        print("========================================")
+        print("")
+
+
+        return jsonify(
+            response
+        ), 200
 
 
     except Exception as e:
 
+        print("")
         print(
             "Prediction Runtime Error:",
             str(e)
         )
+        print("")
 
         return jsonify({
 
-            "status": "error",
+            "status":
+                "error",
 
             "error":
                 str(e)
@@ -521,7 +724,7 @@ def predict():
 
 
 # ============================================================
-# RUN SERVER
+# START SERVER
 # ============================================================
 
 if __name__ == "__main__":
@@ -532,6 +735,17 @@ if __name__ == "__main__":
             5000
         )
     )
+
+    print("")
+    print("========================================")
+    print("     BREAST CANCER DETECTION API")
+    print("========================================")
+    print(
+        "Server running on port:",
+        port
+    )
+    print("========================================")
+    print("")
 
     app.run(
         host="0.0.0.0",
