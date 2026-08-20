@@ -3,166 +3,600 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
+
     <title>Breast Cancer Detection AI</title>
-    <!-- Tailwind CSS CDN -->
+
+    <!-- Tailwind CSS -->
     <script src="https://cdn.tailwindcss.com"></script>
-    <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css" rel="stylesheet">
+
+    <!-- Font Awesome -->
+    <link
+        href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.0.0/css/all.min.css"
+        rel="stylesheet"
+    >
 </head>
+
 <body class="bg-slate-900 text-slate-100 min-h-screen flex flex-col justify-between font-sans">
 
-    <!-- Header Section -->
+
+    <!-- ========================================================= -->
+    <!-- HEADER -->
+    <!-- ========================================================= -->
+
     <header class="border-b border-slate-800 bg-slate-950/50 backdrop-blur-md py-4 px-6 sticky top-0 z-50">
+
         <div class="max-w-4xl mx-auto flex items-center justify-between">
+
             <div class="flex items-center space-x-3">
+
                 <div class="p-2 bg-indigo-600 rounded-lg text-white">
-                    <i class="fa-solid font-bold fa-heart-pulse text-xl"></i>
+
+                    <i class="fa-solid fa-heart-pulse text-xl"></i>
+
                 </div>
-                <h1 class="text-xl font-bold tracking-wide text-white">OncoVision <span class="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded border border-indigo-500/30">AI</span></h1>
+
+                <h1 class="text-xl font-bold tracking-wide text-white">
+
+                    OncoVision
+
+                    <span class="text-xs bg-indigo-500/20 text-indigo-400 px-2 py-0.5 rounded border border-indigo-500/30">
+                        AI
+                    </span>
+
+                </h1>
+
             </div>
-            <span class="text-xs text-slate-400 border border-slate-700 px-3 py-1 rounded-full">Breast Cancer Diagnostic Assistant</span>
+
+
+            <span class="text-xs text-slate-400 border border-slate-700 px-3 py-1 rounded-full">
+
+                Breast Cancer Diagnostic Assistant
+
+            </span>
+
         </div>
+
     </header>
 
-    <!-- Main Container -->
+
+
+    <!-- ========================================================= -->
+    <!-- MAIN -->
+    <!-- ========================================================= -->
+
     <main class="max-w-xl mx-auto w-full px-4 py-8 flex-grow flex flex-col justify-center">
-        
+
         <div class="bg-slate-800/60 border border-slate-700/60 rounded-2xl p-6 sm:p-8 shadow-2xl backdrop-blur-xl">
+
+
+            <!-- TITLE -->
+
             <div class="text-center mb-6">
-                <h2 class="text-2xl font-semibold text-white mb-2">Upload Histopathology Image</h2>
-                <p class="text-slate-400 text-sm">Upload a microscopic tissue image to analyze potential malignancy.</p>
+
+                <h2 class="text-2xl font-semibold text-white mb-2">
+
+                    Upload Histopathology Image
+
+                </h2>
+
+                <p class="text-slate-400 text-sm">
+
+                    Upload a microscopic tissue image to analyze potential malignancy.
+
+                </p>
+
             </div>
 
-            <!-- Upload Area -->
-            <div class="relative border-2 border-dashed border-slate-600 hover:border-indigo-500 rounded-xl p-6 transition-all duration-200 text-center cursor-pointer bg-slate-900/40 group mb-6">
-                <input type="file" id="fileInput" accept="image/*" class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10" />
-                
-                <!-- Default Placeholder -->
-                <div id="uploadPlaceholder" class="flex flex-col items-center justify-center space-y-3">
+
+
+            <!-- ================================================= -->
+            <!-- UPLOAD AREA -->
+            <!-- ================================================= -->
+
+            <div
+                class="relative border-2 border-dashed border-slate-600 hover:border-indigo-500 rounded-xl p-6 transition-all duration-200 text-center cursor-pointer bg-slate-900/40 group mb-6"
+            >
+
+                <input
+                    type="file"
+                    id="fileInput"
+                    accept="image/*"
+                    class="absolute inset-0 w-full h-full opacity-0 cursor-pointer z-10"
+                >
+
+
+                <!-- DEFAULT -->
+
+                <div
+                    id="uploadPlaceholder"
+                    class="flex flex-col items-center justify-center space-y-3"
+                >
+
                     <div class="p-4 bg-slate-800 rounded-full text-indigo-400 group-hover:scale-110 transition-transform duration-200">
+
                         <i class="fa-solid fa-cloud-arrow-up text-3xl"></i>
+
                     </div>
+
+
                     <div>
-                        <p class="text-sm font-medium text-slate-200">Click to upload or drag & drop</p>
-                        <p class="text-xs text-slate-500 mt-1">PNG, JPG, or JPEG (Recommended size: 224x224)</p>
+
+                        <p class="text-sm font-medium text-slate-200">
+
+                            Click to upload or drag & drop
+
+                        </p>
+
+                        <p class="text-xs text-slate-500 mt-1">
+
+                            PNG, JPG, or JPEG (Recommended size: 224x224)
+
+                        </p>
+
                     </div>
+
                 </div>
 
-                <!-- Preview Container -->
-                <div id="previewContainer" class="hidden flex flex-col items-center justify-center space-y-3 z-20">
-                    <img id="imagePreview" src="" alt="Selected Preview" class="max-h-56 rounded-lg object-contain shadow-lg border border-slate-700" />
-                    <span class="text-xs text-indigo-400 hover:underline pointer-events-none">Click to change image</span>
+
+
+                <!-- PREVIEW -->
+
+                <div
+                    id="previewContainer"
+                    class="hidden flex flex-col items-center justify-center space-y-3 z-20"
+                >
+
+                    <img
+                        id="imagePreview"
+                        src=""
+                        alt="Selected Preview"
+                        class="max-h-56 rounded-lg object-contain shadow-lg border border-slate-700"
+                    >
+
+                    <span class="text-xs text-indigo-400 hover:underline pointer-events-none">
+
+                        Click to change image
+
+                    </span>
+
                 </div>
+
             </div>
 
-            <!-- Action Button -->
-            <button id="analyzeBtn" onclick="uploadImage()" class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-3 px-4 rounded-xl shadow-lg transition-all duration-200 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed">
+
+
+            <!-- ================================================= -->
+            <!-- ANALYZE BUTTON -->
+            <!-- ================================================= -->
+
+            <button
+                id="analyzeBtn"
+                onclick="uploadImage()"
+                class="w-full bg-indigo-600 hover:bg-indigo-500 text-white font-medium py-3 px-4 rounded-xl shadow-lg transition-all duration-200 flex items-center justify-center space-x-2 disabled:opacity-50 disabled:cursor-not-allowed"
+            >
+
                 <i class="fa-solid fa-microscope"></i>
+
                 <span>Analyze Image</span>
+
             </button>
 
-            <!-- Results Output Display -->
-            <div id="resultBox" class="mt-6 hidden p-4 rounded-xl border text-center transition-all duration-300">
-                <h3 id="resultStatus" class="font-bold text-lg mb-1 whitespace-pre-line"></h3>
-                <p id="resultDetails" class="text-sm font-medium text-slate-300 break-words font-mono text-xs mt-2"></p>
+
+
+            <!-- ================================================= -->
+            <!-- RESULT -->
+            <!-- ================================================= -->
+
+            <div
+                id="resultBox"
+                class="mt-6 hidden p-4 rounded-xl border text-center transition-all duration-300"
+            >
+
+                <h3
+                    id="resultStatus"
+                    class="font-bold text-lg mb-1 whitespace-pre-line"
+                ></h3>
+
+                <p
+                    id="resultDetails"
+                    class="text-sm font-medium text-slate-300 break-words font-mono text-xs mt-2"
+                ></p>
+
             </div>
+
         </div>
 
     </main>
 
-    <!-- Footer -->
+
+
+    <!-- ========================================================= -->
+    <!-- FOOTER -->
+    <!-- ========================================================= -->
+
     <footer class="text-center py-4 border-t border-slate-800/80 text-xs text-slate-500">
-        <p>© 2026 OncoVision AI System. For research and clinical decision support purposes only.</p>
+
+        <p>
+
+            © 2026 OncoVision AI System.
+            For research and clinical decision support purposes only.
+
+        </p>
+
     </footer>
 
-    <!-- JavaScript Handling -->
+
+
+    <!-- ========================================================= -->
+    <!-- JAVASCRIPT -->
+    <!-- ========================================================= -->
+
     <script>
-        const API_URL = "https://breast-cencer-detection-ai-final.onrender.com/predict";
 
-        // DOM Elements
-        const fileInput = document.getElementById('fileInput');
-        const uploadPlaceholder = document.getElementById('uploadPlaceholder');
-        const previewContainer = document.getElementById('previewContainer');
-        const imagePreview = document.getElementById('imagePreview');
-        const resultBox = document.getElementById('resultBox');
+        const API_URL =
+            "https://breast-cencer-detection-ai-final.onrender.com/predict";
 
-        // Instant Preview Event Listener
-        fileInput.addEventListener('change', function () {
+
+        // DOM
+
+        const fileInput =
+            document.getElementById("fileInput");
+
+        const uploadPlaceholder =
+            document.getElementById("uploadPlaceholder");
+
+        const previewContainer =
+            document.getElementById("previewContainer");
+
+        const imagePreview =
+            document.getElementById("imagePreview");
+
+        const resultBox =
+            document.getElementById("resultBox");
+
+
+
+        // ========================================================
+        // IMAGE PREVIEW
+        // ========================================================
+
+        fileInput.addEventListener("change", function () {
+
             const file = this.files[0];
 
-            if (file) {
-                const reader = new FileReader();
-
-                reader.onload = function (e) {
-                    imagePreview.src = e.target.result;
-                    uploadPlaceholder.classList.add('hidden');
-                    previewContainer.classList.remove('hidden');
-                    resultBox.classList.add('hidden');
-                };
-
-                reader.readAsDataURL(file);
-            }
-        });
-
-        // Upload Function
-        async function uploadImage() {
-            const resultStatus = document.getElementById("resultStatus");
-            const resultDetails = document.getElementById("resultDetails");
-            const analyzeBtn = document.getElementById("analyzeBtn");
-
-            if (!fileInput.files[0]) {
-                alert("Please select an image file first.");
+            if (!file) {
                 return;
             }
 
-            const formData = new FormData();
-            formData.append("file", fileInput.files[0]);
 
-            // Set Loading UI
-            analyzeBtn.disabled = true;
-            analyzeBtn.innerHTML = `<i class="fa-solid fa-spinner animate-spin"></i> Processing...`;
-            
-            resultBox.className = "mt-6 p-4 rounded-xl border text-center border-indigo-500/30 bg-indigo-500/10 text-indigo-300 block";
-            resultStatus.innerText = "Analyzing tissue sample...";
-            resultDetails.innerText = "Connecting to model endpoint...";
+            // Check image
+
+            if (!file.type.startsWith("image/")) {
+
+                alert("Please select a valid image file.");
+
+                fileInput.value = "";
+
+                return;
+            }
+
+
+            const reader =
+                new FileReader();
+
+
+            reader.onload = function (e) {
+
+                imagePreview.src =
+                    e.target.result;
+
+
+                uploadPlaceholder.classList.add(
+                    "hidden"
+                );
+
+
+                previewContainer.classList.remove(
+                    "hidden"
+                );
+
+
+                resultBox.classList.add(
+                    "hidden"
+                );
+
+            };
+
+
+            reader.readAsDataURL(file);
+
+        });
+
+
+
+        // ========================================================
+        // UPLOAD AND ANALYZE
+        // ========================================================
+
+        async function uploadImage() {
+
+            const resultStatus =
+                document.getElementById(
+                    "resultStatus"
+                );
+
+
+            const resultDetails =
+                document.getElementById(
+                    "resultDetails"
+                );
+
+
+            const analyzeBtn =
+                document.getElementById(
+                    "analyzeBtn"
+                );
+
+
+            const file =
+                fileInput.files[0];
+
+
+            if (!file) {
+
+                alert(
+                    "Please select an image file first."
+                );
+
+                return;
+
+            }
+
+
+
+            // FormData
+
+            const formData =
+                new FormData();
+
+
+            formData.append(
+                "file",
+                file
+            );
+
+
+
+            // Loading UI
+
+            analyzeBtn.disabled =
+                true;
+
+
+            analyzeBtn.innerHTML = `
+
+                <i class="fa-solid fa-spinner animate-spin"></i>
+
+                <span>Processing...</span>
+
+            `;
+
+
+            resultBox.className =
+                "mt-6 p-4 rounded-xl border text-center border-indigo-500/30 bg-indigo-500/10 text-indigo-300 block";
+
+
+            resultStatus.innerText =
+                "Analyzing tissue sample...";
+
+
+            resultDetails.innerText =
+                "Connecting to AI model...";
+
+
 
             try {
-                const response = await fetch(API_URL, {
-                    method: "POST",
-                    body: formData,
-                });
 
-                const rawData = await response.json().catch(() => null);
+                const response =
+                    await fetch(
+                        API_URL,
+                        {
+                            method: "POST",
+                            body: formData
+                        }
+                    );
+
+
+
+                const rawData =
+                    await response
+                        .json()
+                        .catch(
+                            () => null
+                        );
+
+
+
+                // Server error
 
                 if (!response.ok) {
-                    const serverMsg = rawData && rawData.error ? rawData.error : `HTTP Status ${response.status}`;
-                    showError(response.status, serverMsg);
+
+                    const serverMsg =
+                        rawData &&
+                        rawData.error
+                            ? rawData.error
+                            : `HTTP Status ${response.status}`;
+
+
+                    showError(
+                        response.status,
+                        serverMsg
+                    );
+
+
                     return;
+
                 }
 
-                // Render dynamic diagnosis response
-                if (rawData.result === "Malignant") {
-                    resultBox.className = "mt-6 p-4 rounded-xl border text-center border-red-500/30 bg-red-500/10 text-red-400 block";
-                } else {
-                    resultBox.className = "mt-6 p-4 rounded-xl border text-center border-emerald-500/30 bg-emerald-500/10 text-emerald-400 block";
+
+
+                // Check result
+
+                if (
+                    !rawData ||
+                    !rawData.result
+                ) {
+
+                    showError(
+                        500,
+                        "Invalid response from AI server."
+                    );
+
+                    return;
+
                 }
 
-                resultStatus.innerText = `Result: ${rawData.result}`;
-                resultDetails.innerText = `Model Confidence: ${rawData.confidence}`;
 
-            } catch (error) {
-                console.error("Upload error details:", error);
-                showError(500, error.message || "Network / CORS Request Error");
-            } finally {
-                analyzeBtn.disabled = false;
-                analyzeBtn.innerHTML = `<i class="fa-solid fa-microscope"></i> <span>Analyze Image</span>`;
+
+                // =================================================
+                // SHOW RESULT
+                // =================================================
+
+                if (
+                    rawData.result ===
+                    "Malignant"
+                ) {
+
+                    resultBox.className =
+                        "mt-6 p-4 rounded-xl border text-center border-red-500/30 bg-red-500/10 text-red-400 block";
+
+                }
+
+                else {
+
+                    resultBox.className =
+                        "mt-6 p-4 rounded-xl border text-center border-emerald-500/30 bg-emerald-500/10 text-emerald-400 block";
+
+                }
+
+
+
+                resultStatus.innerText =
+                    `Result: ${rawData.result}`;
+
+
+                resultDetails.innerText =
+                    `Model Confidence: ${rawData.confidence}`;
+
+
+
+                // =================================================
+                // SAVE DATA FOR SECOND PAGE
+                // =================================================
+
+                sessionStorage.setItem(
+                    "oncovision_result",
+                    rawData.result
+                );
+
+
+                sessionStorage.setItem(
+                    "oncovision_confidence",
+                    rawData.confidence || "N/A"
+                );
+
+
+                sessionStorage.setItem(
+                    "oncovision_image",
+                    imagePreview.src
+                );
+
+
+
+                // =================================================
+                // OPEN SECOND PAGE
+                // =================================================
+
+                setTimeout(
+                    function () {
+
+                        window.location.href =
+                            "report.html";
+
+                    },
+                    800
+                );
+
+
+
             }
+
+            catch (error) {
+
+                console.error(
+                    "Upload error:",
+                    error
+                );
+
+
+                showError(
+                    500,
+                    error.message ||
+                    "Network / CORS Request Error"
+                );
+
+            }
+
+            finally {
+
+                analyzeBtn.disabled =
+                    false;
+
+
+                analyzeBtn.innerHTML = `
+
+                    <i class="fa-solid fa-microscope"></i>
+
+                    <span>Analyze Image</span>
+
+                `;
+
+            }
+
         }
 
-        function showError(status, details) {
-            resultBox.className = "mt-6 p-4 rounded-xl border text-center border-rose-500/40 bg-rose-500/10 text-rose-400 block";
-            resultStatus.innerText = `❌ Connection Error!\nServer status: ${status}`;
-            resultDetails.innerText = `Details: ${details || "Please check server logs or redeploy backend using TFLite."}`;
+
+
+        // ========================================================
+        // ERROR
+        // ========================================================
+
+        function showError(
+            status,
+            details
+        ) {
+
+            resultBox.className =
+                "mt-6 p-4 rounded-xl border text-center border-rose-500/40 bg-rose-500/10 text-rose-400 block";
+
+
+            document.getElementById(
+                "resultStatus"
+            ).innerText =
+                `❌ Connection Error!\nServer status: ${status}`;
+
+
+            document.getElementById(
+                "resultDetails"
+            ).innerText =
+                `Details: ${
+                    details ||
+                    "Please check server logs."
+                }`;
+
         }
+
     </script>
+
 </body>
 </html>
